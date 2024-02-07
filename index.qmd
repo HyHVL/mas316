@@ -1,0 +1,55 @@
+---
+execute:
+  warning: false
+---
+
+# Description of the course {.unnumbered}
+
+In this course, students will gain a deep understanding of the fundamental principles related to renewable energy production, including areas like hydrogen production and wind energy. The curriculum integrates theoretical knowledge with hands-on practical calculations, equipping students with the proficiency to model renewable energy production processes effectively.
+
+Students will enhance their expertise in data analysis and modelling, essential skills for the renewable energy sector. They will be capable of conducting resource potential assessments, select optimal installation sites, and performing cost-benefit analyses to optimize renewable energy projects.
+
+# Learning outcomes {.unnumbered}
+
+**Knowledge:**
+
+- Understanding renewable energy, including hydrogen and wind energy.
+
+**Skills:**
+
+- Proficiency in energy calculations and modelling.
+- Ability to analyse and apply theoretical knowledge.
+- Competency in data collection and analysis for renewable energy projects.
+
+**General Competences:**
+
+- Effective modelling and academic presentation.
+- Strong teamwork and time management skills.
+- Identifying solutions in renewable energy and contributing to professional discussions.
+
+# Software {.unnumbered}
+
+The data have been analysed with **R** (version `r paste(R.Version()$major, R.Version()$minor, sep = ".")`) and **Rstudio**, and the book has been created with **Quarto**. You may need to install the following packages:
+
+## R session 
+
+```{r R-session, echo = FALSE}
+
+sessionInfo()
+
+```
+
+```{r pkgs-bib, include=FALSE}
+
+# automatically create a bib database for R packages
+knitr::write_bib(x = c(.packages()), file = 'packages.bib')
+
+```
+
+## Spatial projection
+
+We use the CRS suggested by [Geonorge](https://www.geonorge.no/en/references/references/coordiante-systems/). In this sense, the national wide data are in "ETRS89 / UTM zone 33N", which correspond to the EPSG code of **25833** ([link](https://register.geonorge.no/epsg-koder/euref89-utm-sone-33-2d)), and therefore we transform all our coordinates to that CRS.
+
+# Acknowledgements {.unnumbered}
+
+This work has been financed by XXX

@@ -1,0 +1,25 @@
+project:
+  type: book
+
+book:
+  title: "Modelling of Renewable Energy Systems"
+  author: "Javier Elío, Liina Sangolt"
+  chapters:
+    - index.qmd
+    - wind.qmd
+
+format:
+  html:
+    embed-resources: true
+    theme: cosmo
+    toc: true
+    code-fold: true
+    code-summary: "Show the code"
+    code-tools: true
+    fig-align: center
+
+editor: visual
+
+bibliography: references.bib
+link-citations: true
+

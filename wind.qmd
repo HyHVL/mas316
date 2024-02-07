@@ -1,0 +1,54 @@
+---
+execute:
+  warning: false
+---
+
+# Wind energy {.unnumbered}
+
+## Exercise 1: Map wind turbines in Rogaland
+
+Plot wind turbines from OSM.
+
+Load libraries 
+
+```{r}
+#| label: libraries
+
+
+library(osmdata)
+library(sf)
+library(tmap)
+
+```
+
+Get data from OSM
+
+```{r}
+#|  label: osm-data
+
+
+query <- opq(bbox = "Rogaland") |> 
+   add_osm_feature(key = "generator:source", value = "wind")
+data <-  osmdata_sf(query)
+
+wind_turbines <- data$osm_points 
+
+```
+
+Interactive map
+
+```{r}
+#| label: fig-map
+#| fig-cap: Wind turbines in Rogaland (Norway)
+
+
+tmap_mode("view")
+
+tm_shape(wind_turbines) +
+  tm_dots(col = "#0072B2")
+
+```
+
+
+
+
