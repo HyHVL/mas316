@@ -9,19 +9,19 @@ execute:
 
 Plot wind turbines from OSM.
 
-Load libraries 
+Load libraries
 
 ```{r}
 #| label: libraries
 
 
-library(osmdata)
+library(`osmdata`)
 library(sf)
 library(tmap)
 
 ```
 
-Get data from OSM
+Get data from [OpenStreetMap](https://www.openstreetmap.org/) with `osmdata`, and transform to a `sf` object. 
 
 ```{r}
 #|  label: osm-data
@@ -35,7 +35,7 @@ wind_turbines <- data$osm_points
 
 ```
 
-Interactive map
+Interactive map with `tmap`. 
 
 ```{r}
 #| label: fig-map
@@ -48,7 +48,3 @@ tm_shape(wind_turbines) +
   tm_dots(col = "#0072B2")
 
 ```
-
-
-
-

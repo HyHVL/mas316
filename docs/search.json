@@ -11,7 +11,7 @@
     "href": "index.html#r-session",
     "title": "Modelling of Renewable Energy Systems",
     "section": "R session",
-    "text": "R session\n\n\nR version 4.3.1 (2023-06-16 ucrt)\nPlatform: x86_64-w64-mingw32/x64 (64-bit)\nRunning under: Windows 11 x64 (build 22631)\n\nMatrix products: default\n\n\nlocale:\n[1] LC_COLLATE=English_United States.utf8 \n[2] LC_CTYPE=English_United States.utf8   \n[3] LC_MONETARY=English_United States.utf8\n[4] LC_NUMERIC=C                          \n[5] LC_TIME=English_United States.utf8    \n\ntime zone: Europe/Oslo\ntzcode source: internal\n\nattached base packages:\n[1] stats     graphics  grDevices utils     datasets  methods   base     \n\nloaded via a namespace (and not attached):\n [1] htmlwidgets_1.6.2 compiler_4.3.1    fastmap_1.1.1     cli_3.6.1        \n [5] tools_4.3.1       htmltools_0.5.5   rstudioapi_0.15.0 yaml_2.3.7       \n [9] rmarkdown_2.23    knitr_1.43        jsonlite_1.8.7    xfun_0.39        \n[13] digest_0.6.33     rlang_1.1.1       evaluate_0.21"
+    "text": "R session\n\n\nR version 4.3.1 (2023-06-16 ucrt)\nPlatform: x86_64-w64-mingw32/x64 (64-bit)\nRunning under: Windows 11 x64 (build 22631)\n\nMatrix products: default\n\n\nlocale:\n[1] LC_COLLATE=English_United States.utf8 \n[2] LC_CTYPE=English_United States.utf8   \n[3] LC_MONETARY=English_United States.utf8\n[4] LC_NUMERIC=C                          \n[5] LC_TIME=English_United States.utf8    \n\ntime zone: Europe/Oslo\ntzcode source: internal\n\nattached base packages:\n[1] stats     graphics  grDevices datasets  utils     methods   base     \n\nloaded via a namespace (and not attached):\n [1] htmlwidgets_1.6.2 compiler_4.3.1    fastmap_1.1.1     cli_3.6.1        \n [5] htmltools_0.5.5   tools_4.3.1       rstudioapi_0.15.0 yaml_2.3.7       \n [9] rmarkdown_2.23    knitr_1.43        jsonlite_1.8.7    xfun_0.39        \n[13] digest_0.6.33     rlang_1.1.1       renv_1.0.0        evaluate_0.21"
   },
   {
     "objectID": "index.html#spatial-projection",
@@ -25,6 +25,6 @@
     "href": "wind.html#exercise-1-map-wind-turbines-in-rogaland",
     "title": "Wind energy",
     "section": "Exercise 1: Map wind turbines in Rogaland",
-    "text": "Exercise 1: Map wind turbines in Rogaland\nPlot wind turbines from OSM.\nLoad libraries\n\n\nCode\nlibrary(osmdata)\nlibrary(sf)\nlibrary(tmap)\n\n\nGet data from OSM\n\n\nCode\nquery &lt;- opq(bbox = \"Rogaland\") |&gt; \n   add_osm_feature(key = \"generator:source\", value = \"wind\")\ndata &lt;-  osmdata_sf(query)\n\nwind_turbines &lt;- data$osm_points \n\n\nInteractive map\n\n\nCode\ntmap_mode(\"view\")\n\ntm_shape(wind_turbines) +\n  tm_dots(col = \"#0072B2\")\n\n\n\n\n\n\nFigure 1: Wind turbines in Rogaland (Norway)"
+    "text": "Exercise 1: Map wind turbines in Rogaland\nPlot wind turbines from OSM.\nLoad libraries\n\n\nCode\nlibrary(`osmdata`)\nlibrary(sf)\nlibrary(tmap)\n\n\nGet data from OpenStreetMap with osmdata, and transform to a sf object.\n\n\nCode\nquery &lt;- opq(bbox = \"Rogaland\") |&gt; \n   add_osm_feature(key = \"generator:source\", value = \"wind\")\ndata &lt;-  osmdata_sf(query)\n\nwind_turbines &lt;- data$osm_points \n\n\nInteractive map with tmap.\n\n\nCode\ntmap_mode(\"view\")\n\ntm_shape(wind_turbines) +\n  tm_dots(col = \"#0072B2\")\n\n\n\n\n\n\nFigure 1: Wind turbines in Rogaland (Norway)"
   }
 ]
