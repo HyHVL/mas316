@@ -5,9 +5,19 @@ execute:
 
 # Wind energy {.unnumbered}
 
-## Exercise 1: Map wind turbines in Rogaland
+## Exercise 1
 
-Plot wind turbines from OSM.
+Map wind turbines in Rogaland from OSM and calculate the total energy capacity installed.
+
+### Objetives 
+
+ - OSM (and how get data from it) 
+ - Map points data (interactive map)  
+ - Types of data in a data frame 
+ - Data wrangling 
+ - NAs in a data frame
+
+### Solution 
 
 Load libraries
 
@@ -15,13 +25,13 @@ Load libraries
 #| label: libraries
 
 
-library(`osmdata`)
+library(osmdata)
 library(sf)
 library(tmap)
 
 ```
 
-Get data from [OpenStreetMap](https://www.openstreetmap.org/) with `osmdata`, and transform to a `sf` object. 
+Get data from [OpenStreetMap](https://www.openstreetmap.org/) with `osmdata`, and transform to a `sf` object.
 
 ```{r}
 #|  label: osm-data
@@ -35,7 +45,7 @@ wind_turbines <- data$osm_points
 
 ```
 
-Interactive map with `tmap`. 
+Interactive map with `tmap`.
 
 ```{r}
 #| label: fig-map
@@ -48,3 +58,93 @@ tm_shape(wind_turbines) +
   tm_dots(col = "#0072B2")
 
 ```
+
+
+calculate 
+
+We are going to calculate the maximum capacity (MW) installed in the region. If we inspect the data, there is a column describing called `generator:output:electricity`, which give the information we are looking for in MW. Howevr we can not use it directly, we would need to transform the data to numbers, and think what to do with the `NA`. 
+
+```{r}
+
+wind_turbines$`generator:output:electricity`
+
+```
+
+## Exercise 2 
+
+Map wind farms and wind turbines with NVE data. Free but need to be download before reading into R (save it in a folder: e.g., `~/data/big_data/NVE/NVEData`). I have download them in `.geojson` format. Therefore we need to read them with the `geojsonsf` package, which converts GeoJSON to an `sf`objects. 
+
+### Objetives
+
+- Formats of spatial data 
+- Types of vector data
+- Plot more that one layer in a interactive map
+- Load data from files
+- Data wrangling  
+
+### Solution
+
+```{r}
+#| label: nve-data
+
+# Libraries
+
+library(geojsonsf)
+library(sf)
+library(tidyverse)
+library(tmap)
+
+```
+
+Load data
+
+```{r}
+#| label: load-nve-wind-turbines
+
+wind_turbines_nve_path <- "data/big_data/NVE/NVEData/Vindkraft_Vindturbin.geojson"
+wind_turbines_nve <- geojson_sf(wind_turbines_nve_path)
+wind_turbines_nve
+
+```
+
+```{r}
+#| label: load-nve-wind-farms
+
+
+wind_farms_nve_path <- "data/big_data/NVE/NVEData/Vindkraft_VindkraftanleggOmr.geojson"
+wind_farms_nve <- geojson_sf(wind_farms_nve_path)
+wind_farms_nve
+
+```
+
+Map both together:
+
+```{r}
+#| label: fig-map-nve
+#| fig-cap: Wind turbines in Rogaland (Data from NVE)
+
+
+tmap_mode("view")
+
+
+tm_shape(wind_farms_nve) + 
+  tm_fill("status", alpha = 0.5, title = "Wind farm status") +
+  # Add wind turbines
+  tm_shape(wind_turbines_nve) +
+  tm_dots(col = "#0072B2")
+
+```
+
+
+Status
+
+D	- Drift (Operations)
+N	- Nedlagt (Decommissioned)
+O	- Ombygd (Rebuilt)
+P	- Planlagt (Planned)
+P1 - Planlagt illustrert (Planed illustrated)
+P2 - Planlagt, prosjektert (Planed, projected)
+U	- Under arbeid (in progress)
+V	- Vedtatt (Adopted)
+FJ - Fjernet (Removed)
+
