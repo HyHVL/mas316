@@ -8,8 +8,8 @@ book:
   chapters:
     - index.qmd
     - intro_data_analysis.qmd
-    - wind.qmd
     - solar.qmd
+    - wind.qmd
     - hydroelectric.qmd
     - hydrogen.qmd
 
