@@ -7,7 +7,11 @@ book:
   author: "Javier Elío, Liina Sangolt"
   chapters:
     - index.qmd
+    - intro_data_analysis.qmd
     - wind.qmd
+    - solar.qmd
+    - hydroelectric.qmd
+    - hydrogen.qmd
 
 format:
   html:

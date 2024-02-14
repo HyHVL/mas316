@@ -1,0 +1,44 @@
+---
+execute:
+  warning: false
+---
+
+# Introduction  {.unnumbered}
+
+## Software
+
+### Python
+
+  - Packages (package installations)
+  - Pandas
+  - GeoPandas
+  - Numpy
+
+### Rstudio 
+  - IDE
+
+### GitHub
+  - Version control
+  
+### Quarto
+  - Code and text in the same document (e.g., this book)
+  - Run several different scripting programs (e.g., Python, R, Matlab, ... )
+  - How to generate reports (pdf, HTLM,...)
+  - Websites (GitHub pages)
+
+
+## Types of data
+
+### Tabular data
+
+### Spatial data
+  
+  - Coordinate system
+  - Vector (points, lines, polygons) 
+  - Raster
+
+
+
+
+
+

@@ -1,0 +1,10 @@
+---
+execute:
+  warning: false
+---
+
+# solar energy {.unnumbered}
+
+Intro to solar energy
+
+## Exercise 1

@@ -1,0 +1,10 @@
+---
+execute:
+  warning: false
+---
+
+# Hydrogen production {.unnumbered}
+
+Intro to hydrogen as energy carrier
+
+## Exercises

@@ -5,6 +5,8 @@ execute:
 
 # Wind energy {.unnumbered}
 
+Intro to wind energy
+
 ## Exercise 1
 
 Map wind turbines in Rogaland from OSM and calculate the total energy capacity installed.
@@ -37,7 +39,7 @@ Get data from [OpenStreetMap](https://www.openstreetmap.org/) with `osmdata`, an
 #|  label: osm-data
 
 
-query <- opq(bbox = "Rogaland") |> 
+query <- opq(bbox = "Rogaland", timeout = 50) |> 
    add_osm_feature(key = "generator:source", value = "wind")
 data <-  osmdata_sf(query)
 
