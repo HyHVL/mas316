@@ -9,20 +9,27 @@ execute:
 
 ### Python
 
-  - Packages (package installations)
+  - [Python.org](https://www.python.org/)
+  - Installation of packages/modules
   - Pandas
   - GeoPandas
   - Numpy
 
 ### Rstudio 
+
   - IDE
+  - [Rstudio](https://posit.co/download/rstudio-desktop/)
 
 ### GitHub
+
+  - [GitHub](https://github.com/)
   - Version control
   
 ### Quarto
+
+  - [Quarto](https://quarto.org/)
   - Code and text in the same document (e.g., this book)
-  - Run several different scripting programs (e.g., Python, R, Matlab, ... )
+  - Run several different scripting programs (e.g., Python, R, ... )
   - How to generate reports (pdf, HTLM,...)
   - Websites (GitHub pages)
 
@@ -36,6 +43,14 @@ execute:
   - Coordinate system
   - Vector (points, lines, polygons) 
   - Raster
+
+## Getting help 
+
+  - Package documentation (Vignettes R) / `help()`
+  - Google
+  - [Python.org](https://www.python.org/)
+  - [StackOverflow](https://stackoverflow.com/)
+  - ChatGPT
 
 
 

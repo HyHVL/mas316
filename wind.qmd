@@ -15,29 +15,26 @@ Map wind turbines in Rogaland from OSM and calculate the total energy capacity i
 
  - OSM (and how get data from it) 
  - Map points data (interactive map)  
+ - Manipulate spatial data (e.g., intersection points - polygons)
  - Types of data in a data frame 
  - Data wrangling 
- - NAs in a data frame
-
+ 
 ### Solution 
 
 Load libraries
 
 ```{r}
-#| label: libraries
-
 
 library(osmdata)
 library(sf)
 library(tmap)
+library(tidyverse)
 
 ```
 
 Get data from [OpenStreetMap](https://www.openstreetmap.org/) with `osmdata`, and transform to a `sf` object.
 
 ```{r}
-#|  label: osm-data
-
 
 query <- opq(bbox = "Rogaland", timeout = 50) |> 
    add_osm_feature(key = "generator:source", value = "wind")
@@ -47,11 +44,31 @@ wind_turbines <- data$osm_points
 
 ```
 
+Names of the data frame,
+
+```{r}
+
+wind_turbines |>
+  names()
+
+```
+
+Clean names
+
+```{r}
+
+wind_turbines <- wind_turbines |>
+  janitor::clean_names()
+
+names(wind_turbines)
+
+```
+
 Interactive map with `tmap`.
 
 ```{r}
-#| label: fig-map
-#| fig-cap: Wind turbines in Rogaland (Norway)
+#| label: fig-map-osm-a
+#| fig-cap: Wind turbines in Rogaland (Data from OSM)
 
 
 tmap_mode("view")
@@ -61,16 +78,76 @@ tm_shape(wind_turbines) +
 
 ```
 
+There are some wind turbines that ar not in Rogaland, so we are going to delect them from the dataset. For that we need to intersect our points (`wind turbines`) with the polygon (`Rogaland`).
 
-calculate 
+```{r}
+#| label: fig-map-osm-b
+#| fig-cap: Wind turbines in Rogaland (Data from OSM)
 
-We are going to calculate the maximum capacity (MW) installed in the region. If we inspect the data, there is a column describing called `generator:output:electricity`, which give the information we are looking for in MW. Howevr we can not use it directly, we would need to transform the data to numbers, and think what to do with the `NA`. 
+
+# Get Norwegian counties (polygons)) from GISCO
+counties <- giscoR::gisco_get_nuts(country = "NO",
+                                   year = "2021",
+                                   nuts_level = 3,
+                                   epsg = "4326",
+                                   resolution = "01") 
+# Get only rogaland county
+rogaland <- counties |> 
+  filter(NUTS_NAME == "Rogaland")
+
+# Intersect wind turbines (points) with rogaland (polygons)
+wind_turbines <- wind_turbines |> 
+  st_intersection(rogaland)
+
+# Plot
+tm_shape(wind_turbines) +
+  tm_dots(col = "#0072B2")
+
+```
+
+Now, we are going to calculate the maximum capacity (MW) installed in the region. If we inspect the data, there is a column describing called `generator:output:electricity`, which give the information we are looking for in MW. However, if we inspect the columns we see that the values are characters (`<chr>`) not numbers, so we can not carried out numerical operations on them.  
 
 ```{r}
 
-wind_turbines$`generator:output:electricity`
+glimpse(wind_turbines)
 
 ```
+Therefore, we need to transform the data to numbers. We can use the function `parse_number()` from the package `readr` (inside `tidyverse`). For not deleting the column, we can generate a new one (e.g., `gen_electricity_mw`)
+
+```{r}
+
+wind_turbines <- wind_turbines |> 
+  mutate(gen_electricity_mw = parse_number(generator_output_electricity) )
+     
+# Show first 10 values of the column
+wind_turbines$gen_electricity_mw |> 
+  head(10)
+
+```
+
+Remove `NA` in energy generator: 
+
+```{r}
+
+wind_turbines <- wind_turbines |> 
+  drop_na(gen_electricity_mw)
+
+# Summary of energy generator (without NA) 
+wind_turbines$gen_electricity_mw |> 
+  head(10)
+
+```
+calculate the total generation energy capacity. 
+
+```{r}
+
+total_capacity_mw <- wind_turbines$gen_electricity_mw |> sum()
+
+print(total_capacity_mw)
+
+```
+
+So the total wind capacity installed in Rogaland is `r total_capacity_mw` MW. Note, that this is only the maximum energy installed and not how much it is generate in the region. It does not take into account the efficiency of the turbines nor wind availability!!.
 
 ## Exercise 2 
 
