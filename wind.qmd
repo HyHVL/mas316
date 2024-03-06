@@ -11,15 +11,15 @@ Intro to wind energy
 
 Map wind turbines in Rogaland from OSM and calculate the total energy capacity installed.
 
-### Objetives 
+### Objetives
 
- - OSM (and how get data from it) 
- - Map points data (interactive map)  
- - Manipulate spatial data (e.g., intersection points - polygons)
- - Types of data in a data frame 
- - Data wrangling 
- 
-### Solution 
+-   OSM (and how get data from it)
+-   Map points data (interactive map)\
+-   Manipulate spatial data (e.g., intersection points - polygons)
+-   Types of data in a data frame
+-   Data wrangling
+
+### Solution
 
 Load libraries
 
@@ -105,13 +105,14 @@ tm_shape(wind_turbines) +
 
 ```
 
-Now, we are going to calculate the maximum capacity (MW) installed in the region. If we inspect the data, there is a column describing called `generator:output:electricity`, which give the information we are looking for in MW. However, if we inspect the columns we see that the values are characters (`<chr>`) not numbers, so we can not carried out numerical operations on them.  
+Now, we are going to calculate the maximum capacity (MW) installed in the region. If we inspect the data, there is a column describing called `generator:output:electricity`, which give the information we are looking for in MW. However, if we inspect the columns we see that the values are characters (`<chr>`) not numbers, so we can not carried out numerical operations on them.
 
 ```{r}
 
 glimpse(wind_turbines)
 
 ```
+
 Therefore, we need to transform the data to numbers. We can use the function `parse_number()` from the package `readr` (inside `tidyverse`). For not deleting the column, we can generate a new one (e.g., `gen_electricity_mw`)
 
 ```{r}
@@ -125,7 +126,7 @@ wind_turbines$gen_electricity_mw |>
 
 ```
 
-Remove `NA` in energy generator: 
+Remove `NA` in energy generator:
 
 ```{r}
 
@@ -137,7 +138,8 @@ wind_turbines$gen_electricity_mw |>
   head(10)
 
 ```
-calculate the total generation energy capacity. 
+
+calculate the total generation energy capacity.
 
 ```{r}
 
@@ -149,17 +151,18 @@ print(total_capacity_mw)
 
 So the total wind capacity installed in Rogaland is `r total_capacity_mw` MW. Note, that this is only the maximum energy installed and not how much it is generate in the region. It does not take into account the efficiency of the turbines nor wind availability!!.
 
-## Exercise 2 
+## Exercise 2
 
-Map wind farms and wind turbines with NVE data. Free but need to be download before reading into R (save it in a folder: e.g., `~/data/big_data/NVE/NVEData`). I have download them in `.geojson` format. Therefore we need to read them with the `geojsonsf` package, which converts GeoJSON to an `sf`objects. 
+Map wind farms and wind turbines from NVE ([www.nve.no](https://www.nve.no/)). The data are free but need to be downloaded from [https://nedlasting.nve.no/gis/](https://nedlasting.nve.no/gis/) before reading into R (save it in a folder: e.g., `~/data/big_data/NVE/NVEData`). I have downloaded them in `.geojson` format. Therefore, we need to read them with the `geojsonsf` package, which converts `GeoJSON` to `sf` objects.
 
 ### Objetives
 
-- Formats of spatial data 
-- Types of vector data
-- Plot more that one layer in a interactive map
-- Load data from files
-- Data wrangling  
+-   Load data from local files
+-   Data wrangling (preprocessing)
+-   Formats of spatial data
+-   Spatial intersections (i.e., points - polygons)
+-   Types of vector data (i.e., lines, points, polygons)
+-   Plot more that one layer in a interactive map
 
 ### Solution
 
@@ -167,7 +170,6 @@ Map wind farms and wind turbines with NVE data. Free but need to be download bef
 #| label: nve-data
 
 # Libraries
-
 library(geojsonsf)
 library(sf)
 library(tidyverse)
@@ -175,28 +177,40 @@ library(tmap)
 
 ```
 
-Load data
+Load data from a local file.
+
+a)  Wind turbines (point data)
 
 ```{r}
 #| label: load-nve-wind-turbines
 
 wind_turbines_nve_path <- "data/big_data/NVE/NVEData/Vindkraft_Vindturbin.geojson"
-wind_turbines_nve <- geojson_sf(wind_turbines_nve_path)
+wind_turbines_nve <- geojson_sf(wind_turbines_nve_path) |> 
+  # dataUttaksdato to date format
+  mutate(dataUttaksdato = ymd(dataUttaksdato))
+
 wind_turbines_nve
 
 ```
+
+b)  Wind farms areas (Polygons)
 
 ```{r}
 #| label: load-nve-wind-farms
 
 
 wind_farms_nve_path <- "data/big_data/NVE/NVEData/Vindkraft_VindkraftanleggOmr.geojson"
-wind_farms_nve <- geojson_sf(wind_farms_nve_path)
+wind_farms_nve <- geojson_sf(wind_farms_nve_path) |> 
+  # Coherce to dates format
+  mutate(across(.cols = ends_with("dato"), .fns = ymd)) |> 
+  # Add ID column
+   rowid_to_column("id_farm")
+
 wind_farms_nve
 
 ```
 
-Map both together:
+Map both datasets together:
 
 ```{r}
 #| label: fig-map-nve
@@ -214,16 +228,82 @@ tm_shape(wind_farms_nve) +
 
 ```
 
+Note: Status
 
-Status
-
-D	- Drift (Operations)
-N	- Nedlagt (Decommissioned)
-O	- Ombygd (Rebuilt)
-P	- Planlagt (Planned)
+D - Drift (Operations) 
+N - Nedlagt (Decommissioned)
+O - Ombygd (Rebuilt)
+P - Planlagt (Planned) 
 P1 - Planlagt illustrert (Planed illustrated)
 P2 - Planlagt, prosjektert (Planed, projected)
-U	- Under arbeid (in progress)
-V	- Vedtatt (Adopted)
+U - Under arbeid (in progress) 
+V - Vedtatt (Adopted) 
 FJ - Fjernet (Removed)
+
+To calculate the actual capacity installed, we need to select only the wind fards that are in operation from `wind_farms_nve`, and sum the power capacity (`effekt_MW`). We can do that by montds to see the temporal evolution.
+
+```{r}
+power_year <- wind_farms_nve |>
+  # Get only farm in operation
+  filter(status == "D") |> 
+  # Summarize power by month
+  group_by(year = lubridate::floor_date(idriftDato, "year")) %>%
+  summarize(power_MW = sum(effekt_MW)) |> 
+  ungroup() |> 
+  # Cummulative sum
+  mutate(cumsum_power_MW = cumsum(power_MW))
+
+# Column plot
+ggplot(data = power_year,
+       aes(x = year, y = cumsum_power_MW)) +
+  geom_col(fill = "darkblue") +
+  labs(title = "Cumulative wind power installed in Rogaland",
+       y = "Power [MW]",
+       x = "") +
+  theme_bw()
+
+"https://nve.geodataonline.no/arcgis/services/Vindkraft2/MapServer/WmsServer?request=GetCapabilities&service=WMS"
+  
+```
+We can count now the number of wind turbines per wind farm, to understand for example the volume of blades we may need to recycler. 
+
+```{r}
+
+ # Intersect points (wind turbines) wit polygons (wind farms)
+number_turbines_farm <- wind_turbines_nve |> 
+  # Detect wind farm 
+  st_intersection(wind_farms_nve) |> 
+  # Number of turbines 
+  group_by(id_farm, status,  idriftDato, effekt_MW) |> 
+  summarize(n = n()) |> 
+  ungroup()
+
+number_turbines_farm
+
+```
+Now we are going to plot the evolution but in the number od witd turbines in operation:
+
+```{r}
+
+turbines_year <- number_turbines_farm |>
+  # Get only farm in operation
+  filter(status == "D") |> 
+  # Summarize power by month
+  group_by(year = lubridate::floor_date(idriftDato, "year")) %>%
+  summarize(num_turbines = sum(n)) |> 
+  ungroup() |> 
+  # Cummulative sum
+  mutate(cumsum_num_turbines = cumsum(num_turbines))
+
+# Column plot
+ggplot(data = turbines_year,
+       aes(x = year, y = cumsum_num_turbines)) +
+  geom_col(fill = "darkblue") +
+  labs(title = "Cumulative number of wind turbines installed in Rogaland",
+       y = "",
+       x = "") +
+  theme_bw()
+
+
+```
 
