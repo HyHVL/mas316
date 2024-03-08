@@ -262,8 +262,6 @@ ggplot(data = power_year,
        x = "") +
   theme_bw()
 
-"https://nve.geodataonline.no/arcgis/services/Vindkraft2/MapServer/WmsServer?request=GetCapabilities&service=WMS"
-  
 ```
 We can count now the number of wind turbines per wind farm, to understand for example the volume of blades we may need to recycler. 
 
@@ -307,3 +305,54 @@ ggplot(data = turbines_year,
 
 ```
 
+How would you improve these figures? For example, we can change the background colour, add subtitles and captions, change font sizes, etc. Can you generate your own figure? Why do you think it looks better? As an example I have created this one, what do you think?
+
+```{r}
+
+
+caption_text <- "Data source: The Norwegian Water Resources and Energy Directorate (NVE)\nAuthor: Javier Elío (@Elio_javi) - Western Norway University of Applied Sciences"
+
+# Column plot
+ggplot(data = power_year,
+       aes(x = year, y = cumsum_power_MW)) +
+  geom_col(fill = "#0072B2") +
+  labs(title = "Wind energy in Rogaland (Norway)",
+       subtitle = "Cumulative power installed capacity in MW",
+       caption = caption_text,
+       y = "",
+       x = "") +
+  expand_limits(y = c(0, 1700)) +
+  theme_bw() +
+  theme(
+    # Title and captions
+    plot.title = element_text(size = 15, colour = "darkblue", face = "bold"),
+    plot.subtitle = element_text(size = 10, colour = "grey25"),
+    plot.caption = element_text(size = 10, colour = "grey25"),
+    # Background colour
+    plot.background = element_rect(fill = "linen", colour = NA),
+    panel.background = element_rect(fill = "grey85", colour = NA)
+  ) +
+  # Add arrow
+  annotate(
+    'curve',
+    x = as.Date("2016-01-01"), # Play around with the coordinates until you're satisfied
+    y = 800,
+    yend = 1600,
+    xend = as.Date("2021-01-01"),
+    linewidth = 1.5,
+    curvature = 0.3,
+    col = "#D55E00",
+    arrow = arrow(length = unit(0.5, 'cm'))
+  ) +
+  # Add text
+  annotate(
+    'text',
+    x = as.Date("2012-06-01"),
+    y = 1300,
+    label = "The installed capacity has nearly\ndoubled between 2017 and 2021.\nWhat will the limit be?",
+    size = 3.5,
+    hjust = 0
+  )
+
+
+```
