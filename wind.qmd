@@ -153,7 +153,7 @@ So the total wind capacity installed in Rogaland is `r total_capacity_mw` MW. No
 
 ## Exercise 2
 
-Map wind farms and wind turbines from NVE ([www.nve.no](https://www.nve.no/)). The data are free but need to be downloaded from [https://nedlasting.nve.no/gis/](https://nedlasting.nve.no/gis/) before reading into R (save it in a folder: e.g., `~/data/big_data/NVE/NVEData`). I have downloaded them in `.geojson` format. Therefore, we need to read them with the `geojsonsf` package, which converts `GeoJSON` to `sf` objects.
+Map wind farms and wind turbines from NVE ([www.nve.no](https://www.nve.no/)). The data are free but need to be downloaded from <https://nedlasting.nve.no/gis/> before reading into R (save it in a folder: e.g., `~/data/big_data/NVE/NVEData`). I have downloaded them in `.geojson` format. Therefore, we need to read them with the `geojsonsf` package, which converts `GeoJSON` to `sf` objects.
 
 ### Objetives
 
@@ -230,15 +230,7 @@ tm_shape(wind_farms_nve) +
 
 Note: Status
 
-D - Drift (Operations) 
-N - Nedlagt (Decommissioned)
-O - Ombygd (Rebuilt)
-P - Planlagt (Planned) 
-P1 - Planlagt illustrert (Planed illustrated)
-P2 - Planlagt, prosjektert (Planed, projected)
-U - Under arbeid (in progress) 
-V - Vedtatt (Adopted) 
-FJ - Fjernet (Removed)
+D - Drift (Operations) N - Nedlagt (Decommissioned) O - Ombygd (Rebuilt) P - Planlagt (Planned) P1 - Planlagt illustrert (Planed illustrated) P2 - Planlagt, prosjektert (Planed, projected) U - Under arbeid (in progress) V - Vedtatt (Adopted) FJ - Fjernet (Removed)
 
 To calculate the actual capacity installed, we need to select only the wind fards that are in operation from `wind_farms_nve`, and sum the power capacity (`effekt_MW`). We can do that by montds to see the temporal evolution.
 
@@ -263,7 +255,8 @@ ggplot(data = power_year,
   theme_bw()
 
 ```
-We can count now the number of wind turbines per wind farm, to understand for example the volume of blades we may need to recycler. 
+
+We can count now the number of wind turbines per wind farm, to understand for example the volume of blades we may need to recycler.
 
 ```{r}
 
@@ -279,6 +272,7 @@ number_turbines_farm <- wind_turbines_nve |>
 number_turbines_farm
 
 ```
+
 Now we are going to plot the evolution but in the number od witd turbines in operation:
 
 ```{r}
@@ -356,3 +350,311 @@ ggplot(data = power_year,
 
 
 ```
+
+## Exercise 3
+
+### Objetives
+
+-   Get wind data from NORA3 [link](https://thredds.met.no/thredds/projects/nora3.html).
+
+base on matlab fucntions [link](https://www.mathworks.com/matlabcentral/fileexchange/93685-gridded-nora3-data-automated-and-remote-data-extraction.html)
+
+### Solution
+
+```{r}
+
+library(terra)
+library(tidyterra)
+library(eurostat)
+library(sf)
+library(tidyverse)
+library(purrr)
+library(patchwork)
+library(ncdf4)
+
+```
+
+```{r}
+
+# # EU map
+# box <- st_bbox(c(xmin = -20, xmax = 20, ymax = 45, ymin = 80),
+#                 crs = st_crs(4326)) |> 
+#   st_as_sfc() |> 
+#   st_transform(3035)
+
+eu_countries <- get_eurostat_geospatial(resolution = 10, 
+                                        nuts_level = 0, 
+                                        year = 2016,
+                                        crs = "3035") 
+
+
+```
+
+Read data directly from the web (wiothout dowloading the data to a local folder
+
+```{r}
+#| label: funstions-nora3
+
+#' Get the data of wind speed and direction at specific heihts from a raster
+#' @param .r NORA3 data (SpatRaster)
+#' @param .height Height to get the data (20, 50, 100, 250, 750)
+
+get_wind_height <- function(.r, .height = 100){
+  
+  # Velocity vector (y, y)
+  ux = subset(.r, paste0("x_wind_", .height, "m"))
+  uy = subset(.r, paste0("y_wind_", .height, "m"))
+  
+  # Calculate magnityd (mag) and direction (dir)
+  u_mag = sqrt(ux^2 + uy^2)
+  names(u_mag) <- "magnitude"
+  u_dir = terra::atan2(y = uy, x = ux) * 180/pi
+  names(u_dir) <- "direction"
+
+  # Generate raster 
+  u = c(u_mag, u_dir) 
+  
+  # Output as one raster
+  return(u)
+  
+}
+
+# Function for dowloading wind data from NORA3 
+get_wind_z <- function(.year,
+                       .month,
+                       .day,
+                       .hour_group,
+                       .lead_time){
+  
+  # URL of the data
+  nora3_url <- paste0("https://thredds.met.no/thredds/dodsC/nora3/",
+                      .year,
+                      "/",
+                      .month,
+                      "/",
+                      .day, 
+                      "/",
+                      .hour_group,
+                      "/fc", 
+                      .year,
+                      .month, 
+                      .day,
+                      .hour_group,
+                      "_",
+                      .lead_time,
+                      "_fp.nc")
+  
+  # Open the netCDF file
+  ncin <- ncdf4::nc_open(nora3_url)
+  
+  # Get coordinate  variables
+  lon <- ncdf4::ncvar_get(ncin,"x")
+  lat <- ncdf4::ncvar_get(ncin,"y")
+  
+  # Get time
+  time <- ncdf4::ncvar_get(ncin,"time")
+  
+  # Get wind speed at 10 m above ground (height4)
+  dname <- "wind_speed"
+  ws10_array <- ncdf4::ncvar_get(ncin,dname)
+  dlname <- ncdf4::ncatt_get(ncin,dname,"standard_name")
+  dunits <- ncdf4::ncatt_get(ncin,dname,"units")
+  fillvalue <- ncdf4::ncatt_get(ncin,dname,"_FillValue")
+  # replace netCDF fill values with NA's
+  ws10_array[ws10_array == fillvalue$value] <- NA
+  
+  # Get wind direction at 10 m above ground (height4)
+  dname <- "wind_direction"
+  wd10_array <- ncdf4::ncvar_get(ncin,dname)
+  dlname <- ncdf4::ncatt_get(ncin,dname,"standard_name")
+  dunits <- ncdf4::ncatt_get(ncin,dname,"units")
+  fillvalue <- ncdf4::ncatt_get(ncin,dname,"_FillValue")
+  # replace netCDF fill values with NA's
+  wd10_array[wd10_array == fillvalue$value] <- NA
+  
+  # x_wind_z[x,y,height2,time] 
+  # ncdf4::ncvar_get(ncin,"height2") -- 20  50 100 250 500 750 m above ground
+  dname <- "x_wind_z"
+  xh2_array <- ncdf4::ncvar_get(ncin,dname)
+  dlname <- ncdf4::ncatt_get(ncin,dname,"standard_name")
+  dunits <- ncdf4::ncatt_get(ncin,dname,"units")
+  fillvalue <- ncdf4::ncatt_get(ncin,dname,"_FillValue")
+  # replace netCDF fill values with NA's
+  xh2_array[xh2_array == fillvalue$value] <- NA
+  
+  # y_wind_z[x,y,height2,time]
+  dname <- "y_wind_z"
+  yh2_array <- ncdf4::ncvar_get(ncin,dname)
+  dlname <- ncdf4::ncatt_get(ncin,dname,"standard_name")
+  dunits <- ncdf4::ncatt_get(ncin,dname,"units")
+  fillvalue <- ncdf4::ncatt_get(ncin,dname,"_FillValue")
+  # replace netCDF fill values with NA's
+  yh2_array[yh2_array == fillvalue$value] <- NA
+  
+  
+  # create dataframe with values
+  df <- expand.grid(lon,lat) |> 
+    as_tibble() |> 
+    dplyr::rename_with(~ c("lon", "lat"), 1:2) |> 
+    # Add wind speed and direction at 10 m
+    dplyr::mutate(wind10_mag = as.vector(ws10_array),
+                  wind10_dir = as.vector(wd10_array)) |> 
+    # Add wind speed at h2 
+    dplyr::mutate(
+      # x_wind_z
+      x_wind_20m  = as.vector(xh2_array[ , , 1]),
+      x_wind_50m  = as.vector(xh2_array[ , , 2]),
+      x_wind_100m = as.vector(xh2_array[ , , 3]),
+      x_wind_250m = as.vector(xh2_array[ , , 4]),
+      x_wind_500m = as.vector(xh2_array[ , , 5]),
+      x_wind_750m = as.vector(xh2_array[ , , 6]),
+      # y_wind_z 
+      y_wind_20m  = as.vector(yh2_array[ , , 1]),
+      y_wind_50m  = as.vector(yh2_array[ , , 2]),
+      y_wind_100m = as.vector(yh2_array[ , , 3]),
+      y_wind_250m = as.vector(yh2_array[ , , 4]),
+      y_wind_500m = as.vector(yh2_array[ , , 5]),
+      y_wind_750m = as.vector(yh2_array[ , , 6])
+    )
+  
+  # Create Raster with all data
+  r_crs <- "+proj=lcc +lat_0=66.3 +lon_0=-42 +lat_1=66.3 +lat_2=66.3 +x_0=0 +y_0=0 +R=6371000 +units=m +no_defs"
+  r <- tidyterra::as_spatraster(df, crs = r_crs, digits = 4)
+  # Add time 
+  time(r) <- rep(lubridate::as_datetime(time, tz = "UTC"), times = length(names(r)))
+  
+  # get wind speed and direction at all heights
+  ff <- function(.height) { get_wind_height(r, .height) }
+  u_height_list <- c(20, 50, 100, 250, 750)
+  u_height <- map(u_height_list, ff)
+  names(u_height) <- c("wind20", "wind50", "wind100", "wind250", "wind750")
+  u_height <- u_height |>
+    rast() |> 
+    rename_with( ~ gsub("_1", "_mag", .x, fixed = TRUE)) |> 
+    rename_with( ~ gsub("_2", "_dir", .x, fixed = TRUE))
+  
+  # Retrurn SpatRaster object
+  rr <- c(tidyterra::select(r, wind10_mag,  wind10_dir), u_height)
+  
+  return(rr)
+  
+} 
+
+```
+
+```{r}
+#| label: get-data
+
+
+wind_nora3 <- get_wind_z(.year = "2018",
+                         .month = "11",
+                         .day = "08",
+                         .hour_group = "00",
+                         .lead_time = "004")
+
+wind_nora3
+
+```
+
+```{r}
+#| label: fig-wind-speed
+
+ggplot() +
+  geom_spatraster(data =  select(wind_nora3 , ends_with("mag"))) +
+  facet_wrap(~lyr, ncol = 2) +
+  scale_fill_whitebox_c(name = "u [m/s]", palette = "viridi") +
+  geom_sf(data = eu_countries, fill = NA, colour = "white") +
+  coord_sf(expand = FALSE, crs = sf::st_crs(3035)) +
+  scale_x_continuous(limits = c(3000000, 5000000)) +
+  scale_y_continuous(limits = c(3600000, 5300000)) +
+  labs(title = terra::time(wind_nora3)[1]) +
+  theme_bw()
+
+```
+
+Extract values from one point (e.g., near Utsira - Coordinates from google maps \[WGS84\]: 59.346588 (lat), 4.899842 (long)).
+
+```{r}
+#| label: wind-one-point
+
+# Point 
+xy <- cbind(4.899842, 59.346588)
+point <- vect(xy, crs="+proj=longlat +datum=WGS84") |> 
+  project(crs(wind_nora3))
+
+# Extract values
+p_wind <- terra::extract(wind_nora3, point) |>  
+  select(ends_with("_mag")) |> 
+  pivot_longer(cols = everything()) |> 
+  rename(height_m = name,
+         wind_m_s = value) |> 
+  mutate(height_m = readr::parse_number(height_m))
+  
+
+# Plot
+ggplot() + 
+  geom_point(data = p_wind,
+             aes(x = wind_m_s, y = height_m ),
+             col = "blue") +
+  labs(x = "u [m/s]",
+       y = "height [m]",
+       title = "Vertical wind profile at point: 59.346588 (lat), 4.899842 (long)", 
+       subtitle = terra::time(wind_nora3)[1]) +
+  theme_bw()
+  
+              
+```
+
+Interpolation winf prroflile [@solbrekke2022]:
+
+-   Exponential relation:
+
+    $$  u_{z_2}(t) = u_{z_1}(t) \Big(\frac{z_2}{z_1}\Big)^{\alpha(t)} $$
+
+-   Exponential power law coefficient:
+
+    $$  \alpha(t) = \frac{ln\Big( \frac{u_{z_2}(t)}{u_{z_1}(t)} \Big)}{ln\Big( \frac{z_2}{z_1} \Big)} $$
+
+
+```{r}
+
+# Vector with alpha depending on height
+alpha <- rep(NA, 5)
+for(i in seq_along(alpha)) {
+  alpha[i] = as.numeric( (log(p_wind[i, 2]/p_wind[i+1, 2]) / log(p_wind[i, 1]/p_wind[i+1, 1])) )
+}
+
+# Create data frame for interpolation (steps 5 m) 
+wind_inter <- tibble(height_m = seq(10, 750, 5)) |> 
+  mutate(wind_m_s = NA) |> 
+  mutate(alpha = case_when(
+    height_m <= 20 ~ alpha[1],
+    height_m >  20 &  height_m <=  50 ~ alpha[2],
+    height_m >  50 &  height_m <= 100 ~ alpha[3],
+    height_m > 100 &  height_m <= 250 ~ alpha[4],
+    height_m > 250 &  height_m <= 750 ~ alpha[5]
+  ))  
+
+# Interpolation (based on u [m/s] at 10 m)
+wind_inter$wind_m_s[1] = p_wind[p_wind["height_m"] == 10, ]$wind_m_s
+for(i in 2:length(wind_inter$height_m)) {
+  wind_inter$wind_m_s[i] = wind_inter$wind_m_s[i-1] * (wind_inter$height_m[i] / wind_inter$height_m[i-1])^wind_inter$alpha[i]
+}
+
+# Plot
+ggplot() + 
+  geom_point(data = p_wind,
+             aes(x = wind_m_s, y = height_m ),
+             col = "blue") +
+  geom_line(data = wind_inter,
+             aes(x = wind_m_s, y = height_m ),
+             col = "red") + 
+  labs(x = "u [m/s]",
+       y = "height [m]",
+       title = "Vertical wind profile at point: 59.346588 (lat), 4.899842 (long)", 
+       subtitle = terra::time(wind_nora3)[1]) +
+  theme_bw()
+
+
+```
+

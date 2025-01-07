@@ -20,6 +20,16 @@
       ],
       "Hash": "b2866e62bab9378c3cc9476a1954226b"
     },
+    "ISOweek": {
+      "Package": "ISOweek",
+      "Version": "0.6-2",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "stringr"
+      ],
+      "Hash": "ad7e2b013b9379cb560caa9b168202f0"
+    },
     "KernSmooth": {
       "Package": "KernSmooth",
       "Version": "2.23-21",
@@ -104,6 +114,26 @@
       ],
       "Hash": "ae6cbbe1492f4de79c45fce06f967ce8"
     },
+    "RefManageR": {
+      "Package": "RefManageR",
+      "Version": "1.4.0",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "R",
+        "bibtex",
+        "httr",
+        "jsonlite",
+        "lubridate",
+        "methods",
+        "plyr",
+        "stringr",
+        "tools",
+        "utils",
+        "xml2"
+      ],
+      "Hash": "d22e94d9088f55cc112e722888afcc70"
+    },
     "XML": {
       "Package": "XML",
       "Version": "3.99-0.16.1",
@@ -138,6 +168,16 @@
       ],
       "Hash": "e8a22846fff485f0be3770c2da758713"
     },
+    "assertthat": {
+      "Package": "assertthat",
+      "Version": "0.2.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "tools"
+      ],
+      "Hash": "50c838a310445e954bc13f26f26a6ecf"
+    },
     "backports": {
       "Package": "backports",
       "Version": "1.4.1",
@@ -157,6 +197,18 @@
         "R"
       ],
       "Hash": "543776ae6848fde2f48ff3816d0628bc"
+    },
+    "bibtex": {
+      "Package": "bibtex",
+      "Version": "0.5.1",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "R",
+        "backports",
+        "utils"
+      ],
+      "Hash": "a704d52e87822191b42c715c568f96dd"
     },
     "bit": {
       "Package": "bit",
@@ -541,6 +593,36 @@
       ],
       "Hash": "bb0eec2fe32e88d9e2836c2f73ea2077"
     },
+    "eurostat": {
+      "Package": "eurostat",
+      "Version": "4.0.0",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "ISOweek",
+        "R",
+        "RefManageR",
+        "classInt",
+        "countrycode",
+        "curl",
+        "data.table",
+        "digest",
+        "dplyr",
+        "httr2",
+        "jsonlite",
+        "lubridate",
+        "rappdirs",
+        "readr",
+        "regions",
+        "rlang",
+        "stringi",
+        "stringr",
+        "tibble",
+        "tidyr",
+        "xml2"
+      ],
+      "Hash": "0c47aa277743a3410af9d211168ca0c7"
+    },
     "evaluate": {
       "Package": "evaluate",
       "Version": "0.21",
@@ -677,7 +759,7 @@
     },
     "ggplot2": {
       "Package": "ggplot2",
-      "Version": "3.4.2",
+      "Version": "3.5.1",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -698,7 +780,7 @@
         "vctrs",
         "withr"
       ],
-      "Hash": "3a147ee02e85a8941aad9909f1b43b7b"
+      "Hash": "44c6a2f8202d5b7e878ea274b1092426"
     },
     "giscoR": {
       "Package": "giscoR",
@@ -829,6 +911,16 @@
         "vctrs"
       ],
       "Hash": "9171f898db9d9c4c1b2c745adc2c1ef1"
+    },
+    "here": {
+      "Package": "here",
+      "Version": "1.0.1",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "rprojroot"
+      ],
+      "Hash": "24b224366f9c2e7534d2344d10d59211"
     },
     "highr": {
       "Package": "highr",
@@ -1234,6 +1326,13 @@
       ],
       "Hash": "6dfe8bf774944bd5595785e3229d8771"
     },
+    "ncdf4": {
+      "Package": "ncdf4",
+      "Version": "1.23",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Hash": "6418a4ba45fbcff589080e9cbea26677"
+    },
     "nlme": {
       "Package": "nlme",
       "Version": "3.1-162",
@@ -1279,6 +1378,25 @@
       ],
       "Hash": "484fb25b6267ae0a885511dbac53f193"
     },
+    "patchwork": {
+      "Package": "patchwork",
+      "Version": "1.3.0",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "cli",
+        "farver",
+        "ggplot2",
+        "grDevices",
+        "graphics",
+        "grid",
+        "gtable",
+        "rlang",
+        "stats",
+        "utils"
+      ],
+      "Hash": "e23fb9ecb1258207bcb763d78d513439"
+    },
     "pillar": {
       "Package": "pillar",
       "Version": "1.9.0",
@@ -1305,6 +1423,17 @@
         "utils"
       ],
       "Hash": "01f28d4278f15c76cddbea05899c5d6f"
+    },
+    "plyr": {
+      "Package": "plyr",
+      "Version": "1.8.9",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "Rcpp"
+      ],
+      "Hash": "6b8177fd19982f0020743fadbfdbd933"
     },
     "png": {
       "Package": "png",
@@ -1481,6 +1610,31 @@
       ],
       "Hash": "8cf9c239b96df1bbb133b74aef77ad0a"
     },
+    "regions": {
+      "Package": "regions",
+      "Version": "0.1.8",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "R",
+        "assertthat",
+        "countrycode",
+        "dplyr",
+        "glue",
+        "here",
+        "magrittr",
+        "purrr",
+        "readxl",
+        "rlang",
+        "stats",
+        "stringr",
+        "tibble",
+        "tidyr",
+        "tidyselect",
+        "utils"
+      ],
+      "Hash": "c03b0e9b4289b24062e895ae81ef7b3d"
+    },
     "rematch": {
       "Package": "rematch",
       "Version": "2.0.0",
@@ -1578,6 +1732,16 @@
       ],
       "Hash": "79f14e53725f28900d936f692bfdd69f"
     },
+    "rprojroot": {
+      "Package": "rprojroot",
+      "Version": "2.0.4",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R"
+      ],
+      "Hash": "4c8415e0ec1e29f3f4f6fc108bef0144"
+    },
     "rstudioapi": {
       "Package": "rstudioapi",
       "Version": "0.15.0",
@@ -1633,21 +1797,23 @@
     },
     "scales": {
       "Package": "scales",
-      "Version": "1.2.1",
+      "Version": "1.3.0",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
         "R",
         "R6",
         "RColorBrewer",
+        "cli",
         "farver",
+        "glue",
         "labeling",
         "lifecycle",
         "munsell",
         "rlang",
         "viridisLite"
       ],
-      "Hash": "906cb23d2f1c5680b8ce439b44c6fa63"
+      "Hash": "c19df082ba346b0ffa6f833e92de34d1"
     },
     "selectr": {
       "Package": "selectr",
@@ -1873,6 +2039,27 @@
         "withr"
       ],
       "Hash": "79540e5fcd9e0435af547d885f184fd5"
+    },
+    "tidyterra": {
+      "Package": "tidyterra",
+      "Version": "0.6.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "cli",
+        "data.table",
+        "dplyr",
+        "ggplot2",
+        "magrittr",
+        "rlang",
+        "scales",
+        "sf",
+        "terra",
+        "tibble",
+        "tidyr"
+      ],
+      "Hash": "5d9672bc78297d33c4ad8b51a8aaa48f"
     },
     "tidyverse": {
       "Package": "tidyverse",
