@@ -355,9 +355,9 @@ ggplot(data = power_year,
 
 ### Objetives
 
--   Get wind data from NORA3 [link](https://thredds.met.no/thredds/projects/nora3.html).
+-   Get wind data from NORA3 [link](https://thredds.met.no/thredds/projects/nora3.html). 
 
-base on matlab fucntions [link](https://www.mathworks.com/matlabcentral/fileexchange/93685-gridded-nora3-data-automated-and-remote-data-extraction.html)
+The R-script is based on matlab fucntions [link](https://www.mathworks.com/matlabcentral/fileexchange/93685-gridded-nora3-data-automated-and-remote-data-extraction.html)
 
 ### Solution
 
@@ -605,7 +605,7 @@ ggplot() +
               
 ```
 
-Interpolation winf prroflile [@solbrekke2022]:
+Interpolation wind profile [@solbrekke2022]:
 
 -   Exponential relation:
 
@@ -616,30 +616,40 @@ Interpolation winf prroflile [@solbrekke2022]:
     $$  \alpha(t) = \frac{ln\Big( \frac{u_{z_2}(t)}{u_{z_1}(t)} \Big)}{ln\Big( \frac{z_2}{z_1} \Big)} $$
 
 
+
+
 ```{r}
 
-# Vector with alpha depending on height
-alpha <- rep(NA, 5)
-for(i in seq_along(alpha)) {
-  alpha[i] = as.numeric( (log(p_wind[i, 2]/p_wind[i+1, 2]) / log(p_wind[i, 1]/p_wind[i+1, 1])) )
+get_inter_wind_profile <- function(x){
+  
+  # Vector with alpha depending on height
+  alpha <- rep(NA, 5)
+  for(i in seq_along(alpha)) {
+    alpha[i] = as.numeric( (log(x[i, 2]/x[i+1, 2]) / log(x[i, 1]/x[i+1, 1])) )
+  }
+  
+  # Create data frame for interpolation (steps = 1) 
+  wind_inter <- tibble(height_m = seq(10, 750, 1)) |> 
+    mutate(wind_m_s = NA) |> 
+    mutate(alpha = case_when(
+      height_m <= 20 ~ alpha[1],
+      height_m >  20 &  height_m <=  50 ~ alpha[2],
+      height_m >  50 &  height_m <= 100 ~ alpha[3],
+      height_m > 100 &  height_m <= 250 ~ alpha[4],
+      height_m > 250 &  height_m <= 750 ~ alpha[5]
+    ))  
+  
+  # Interpolation (based on u [m/s] at 10 m)
+  wind_inter$wind_m_s[1] = x[x["height_m"] == 10, ]$wind_m_s
+  for(i in 2:length(wind_inter$height_m)) {
+    wind_inter$wind_m_s[i] = wind_inter$wind_m_s[i-1] * (wind_inter$height_m[i] / wind_inter$height_m[i-1])^wind_inter$alpha[i]
+  }
+  
+  return(wind_inter)
+  
 }
-
-# Create data frame for interpolation (steps 5 m) 
-wind_inter <- tibble(height_m = seq(10, 750, 5)) |> 
-  mutate(wind_m_s = NA) |> 
-  mutate(alpha = case_when(
-    height_m <= 20 ~ alpha[1],
-    height_m >  20 &  height_m <=  50 ~ alpha[2],
-    height_m >  50 &  height_m <= 100 ~ alpha[3],
-    height_m > 100 &  height_m <= 250 ~ alpha[4],
-    height_m > 250 &  height_m <= 750 ~ alpha[5]
-  ))  
-
-# Interpolation (based on u [m/s] at 10 m)
-wind_inter$wind_m_s[1] = p_wind[p_wind["height_m"] == 10, ]$wind_m_s
-for(i in 2:length(wind_inter$height_m)) {
-  wind_inter$wind_m_s[i] = wind_inter$wind_m_s[i-1] * (wind_inter$height_m[i] / wind_inter$height_m[i-1])^wind_inter$alpha[i]
-}
+  
+wind_inter <- get_inter_wind_profile(p_wind)
 
 # Plot
 ggplot() + 
@@ -655,6 +665,197 @@ ggplot() +
        subtitle = terra::time(wind_nora3)[1]) +
   theme_bw()
 
+
+```
+
+
+
+## Exercise 4
+
+### Objetives
+
+Time series wind  usimg [NORA3](https://thredds.met.no/thredds/projects/nora3.html) data
+
+Analyse wind speed and ditection over time in a point at 100 m hight. 
+
+### Solution
+
+```{r}
+
+library(terra)
+library(tidyterra)
+library(eurostat)
+library(sf)
+library(tidyverse)
+library(lubridate)
+library(purrr)
+library(patchwork)
+library(ncdf4)
+
+```
+
+Create a funstion for getting the at 100m height. 
+
+```{r}
+#| label: function-get-data-100m
+
+
+get_wind_100m_point <- function(.year,
+                                .month,
+                                .day,
+                                .hour_group,
+                                .lead_time,
+                                .long,
+                                .lat){
+  
+  # URL of the data
+  nora3_url <- paste0("https://thredds.met.no/thredds/dodsC/nora3/",
+                      .year,
+                      "/",
+                      .month,
+                      "/",
+                      .day, 
+                      "/",
+                      .hour_group,
+                      "/fc", 
+                      .year,
+                      .month, 
+                      .day,
+                      .hour_group,
+                      "_",
+                      .lead_time,
+                      "_fp.nc")
+  
+  # Open the netCDF file
+  ncin <- ncdf4::nc_open(nora3_url)
+  
+  # Get coordinate  variables
+  lon <- ncdf4::ncvar_get(ncin,"x")
+  lat <- ncdf4::ncvar_get(ncin,"y")
+  
+  # Get time
+  time <- ncdf4::ncvar_get(ncin,"time")
+  
+  # x_wind_z[x,y,height2,time] 
+  # ncdf4::ncvar_get(ncin,"height2") -- 20  50 100 250 500 750 m above ground
+  dname <- "x_wind_z"
+  xh2_array <- ncdf4::ncvar_get(ncin,dname)
+  dlname <- ncdf4::ncatt_get(ncin,dname,"standard_name")
+  dunits <- ncdf4::ncatt_get(ncin,dname,"units")
+  fillvalue <- ncdf4::ncatt_get(ncin,dname,"_FillValue")
+  # replace netCDF fill values with NA's
+  xh2_array[xh2_array == fillvalue$value] <- NA
+  
+  # y_wind_z[x,y,height2,time]
+  dname <- "y_wind_z"
+  yh2_array <- ncdf4::ncvar_get(ncin,dname)
+  dlname <- ncdf4::ncatt_get(ncin,dname,"standard_name")
+  dunits <- ncdf4::ncatt_get(ncin,dname,"units")
+  fillvalue <- ncdf4::ncatt_get(ncin,dname,"_FillValue")
+  # replace netCDF fill values with NA's
+  yh2_array[yh2_array == fillvalue$value] <- NA
+  
+  
+  # create dataframe with values
+  df <- expand.grid(lon,lat) |> 
+    as_tibble() |> 
+    dplyr::rename_with(~ c("lon", "lat"), 1:2) |> 
+    # Add wind speed at 100 m 
+    dplyr::mutate(
+      # x_wind_z
+      x_wind_100m = as.vector(xh2_array[ , , 3]),
+      # y_wind_z 
+      y_wind_100m = as.vector(yh2_array[ , , 3]),
+    )
+  
+  # Create Raster with all data
+  r_crs <- "+proj=lcc +lat_0=66.3 +lon_0=-42 +lat_1=66.3 +lat_2=66.3 +x_0=0 +y_0=0 +R=6371000 +units=m +no_defs"
+  r <- tidyterra::as_spatraster(df, crs = r_crs, digits = 4) |> 
+    # Calculate magnitude and direction
+    mutate(u_mag = sqrt(x_wind_100m^2 + y_wind_100m^2),
+           u_dir = terra::atan2(y = y_wind_100m, x = x_wind_100m) * 180/pi) |> 
+    select(u_mag, u_dir)
+  # Add time 
+  time(r) <- rep(lubridate::as_datetime(time, tz = "UTC"), times = length(names(r)))
+  
+  # Extract wind values in the points  
+  xy <- cbind(.long, .lat)
+  point <- vect(xy, crs="+proj=longlat +datum=WGS84") |> 
+    project(crs(r))
+  
+  # Extract values
+  p_wind_100m <- terra::extract(r, point) |> 
+    as_tibble() |> 
+    mutate(time = as_datetime(time(r)[1]))
+  
+  return(p_wind_100m)
+  
+} 
+
+```
+
+
+
+
+
+```{r}
+#| label: get-wind-data-100m
+#| cache: true
+
+
+df <- tibble(
+  time = seq.Date(from = as.Date("2018-01-01"),
+                  to = as.Date("2018-01-02"),
+                  by= "day"),
+  data = list(
+    tibble(hour_group = rep(c("00", "06", "12", "18"), each = 6),
+           lead_time = rep(c("004", "005", "006", "007", "008", "009"), time = 4) 
+    )
+  )
+) |> 
+  separate(time, c("year", "month", "day")) |> 
+  unnest(data) |> 
+  mutate(long = 4.899842,
+         lat = 59.346588)
+
+wind_100m <- df |> 
+  rowwise() |> 
+  mutate(wing_100m = get_wind_100m_point(.year = year,
+                                         .month = month,
+                                         .day = day,
+                                         .hour_group = hour_group,
+                                         .lead_time = lead_time,
+                                         .long = long,
+                                         .lat = lat)) |>  
+  unnest(wing_100m) 
+
+```
+
+```{r}
+
+ggplot(data = wing_100m, aes(x = time, y = u_mag)) +
+  geom_point() +
+  geom_smooth(span = 0.3, se = FALSE) +
+  # Cut-in
+  geom_hline(yintercept = 3.5, col = "#009E73", linetype = "dashed") + 
+  geom_text(x = as_datetime("2018-11-08 04:00:00"),
+            y = 4, 
+            label = "Cut-in",
+            colour = "#009E73") + 
+  # Cut-off
+  geom_hline(yintercept = 25, col = "#D55E00", linetype = "dashed") +
+  geom_text(x = as_datetime("2018-11-08 04:00:00"),
+            y = 25.5, 
+            label = "Cut-off",
+            colour = "#D55E00") +
+  # Format labels and title
+  labs(x = "Time",
+       y = "u [m/s]",
+       title = "Wind speed at 100 m height", 
+       subtitle = "Coordinates (WGS84): Long = 4.899842, lat = 59.346588",
+       caption = "Data: NORA3") +
+  coord_cartesian(ylim = c(0,30)) +
+  theme_bw()
 
 ```
 
