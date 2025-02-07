@@ -232,9 +232,12 @@ Note: Status
 
 D - Drift (Operations) N - Nedlagt (Decommissioned) O - Ombygd (Rebuilt) P - Planlagt (Planned) P1 - Planlagt illustrert (Planed illustrated) P2 - Planlagt, prosjektert (Planed, projected) U - Under arbeid (in progress) V - Vedtatt (Adopted) FJ - Fjernet (Removed)
 
-To calculate the actual capacity installed, we need to select only the wind fards that are in operation from `wind_farms_nve`, and sum the power capacity (`effekt_MW`). We can do that by montds to see the temporal evolution.
+To calculate the actual capacity installed, we need to select only the wind farms that are in operation from `wind_farms_nve`, and sum the power capacity (`effekt_MW`). We can do that by montds to see the temporal evolution.
 
 ```{r}
+#| label: wind-capacity
+#| fig-cap: Wind capacity
+
 power_year <- wind_farms_nve |>
   # Get only farm in operation
   filter(status == "D") |> 
@@ -355,7 +358,7 @@ ggplot(data = power_year,
 
 ### Objetives
 
--   Get wind data from NORA3 [link](https://thredds.met.no/thredds/projects/nora3.html). 
+-   Get wind data from NORA3 [link](https://thredds.met.no/thredds/projects/nora3.html).
 
 The R-script is based on matlab fucntions [link](https://www.mathworks.com/matlabcentral/fileexchange/93685-gridded-nora3-data-automated-and-remote-data-extraction.html)
 
@@ -615,9 +618,6 @@ Interpolation wind profile [@solbrekke2022]:
 
     $$  \alpha(t) = \frac{ln\Big( \frac{u_{z_2}(t)}{u_{z_1}(t)} \Big)}{ln\Big( \frac{z_2}{z_1} \Big)} $$
 
-
-
-
 ```{r}
 
 get_inter_wind_profile <- function(x){
@@ -668,15 +668,13 @@ ggplot() +
 
 ```
 
-
-
 ## Exercise 4
 
 ### Objetives
 
-Time series wind  usimg [NORA3](https://thredds.met.no/thredds/projects/nora3.html) data
+Time series wind usimg [NORA3](https://thredds.met.no/thredds/projects/nora3.html) data
 
-Analyse wind speed and ditection over time in a point at 100 m hight. 
+Analyse wind speed and ditection over time in a point at 100 m hight.
 
 ### Solution
 
@@ -691,171 +689,269 @@ library(lubridate)
 library(purrr)
 library(patchwork)
 library(ncdf4)
+library(gt)
 
 ```
 
-Create a funstion for getting the at 100m height. 
+Read data that have been previously downloaded into a local file.
 
 ```{r}
-#| label: function-get-data-100m
 
-
-get_wind_100m_point <- function(.year,
-                                .month,
-                                .day,
-                                .hour_group,
-                                .lead_time,
-                                .long,
-                                .lat){
-  
-  # URL of the data
-  nora3_url <- paste0("https://thredds.met.no/thredds/dodsC/nora3/",
-                      .year,
-                      "/",
-                      .month,
-                      "/",
-                      .day, 
-                      "/",
-                      .hour_group,
-                      "/fc", 
-                      .year,
-                      .month, 
-                      .day,
-                      .hour_group,
-                      "_",
-                      .lead_time,
-                      "_fp.nc")
-  
-  # Open the netCDF file
-  ncin <- ncdf4::nc_open(nora3_url)
-  
-  # Get coordinate  variables
-  lon <- ncdf4::ncvar_get(ncin,"x")
-  lat <- ncdf4::ncvar_get(ncin,"y")
-  
-  # Get time
-  time <- ncdf4::ncvar_get(ncin,"time")
-  
-  # x_wind_z[x,y,height2,time] 
-  # ncdf4::ncvar_get(ncin,"height2") -- 20  50 100 250 500 750 m above ground
-  dname <- "x_wind_z"
-  xh2_array <- ncdf4::ncvar_get(ncin,dname)
-  dlname <- ncdf4::ncatt_get(ncin,dname,"standard_name")
-  dunits <- ncdf4::ncatt_get(ncin,dname,"units")
-  fillvalue <- ncdf4::ncatt_get(ncin,dname,"_FillValue")
-  # replace netCDF fill values with NA's
-  xh2_array[xh2_array == fillvalue$value] <- NA
-  
-  # y_wind_z[x,y,height2,time]
-  dname <- "y_wind_z"
-  yh2_array <- ncdf4::ncvar_get(ncin,dname)
-  dlname <- ncdf4::ncatt_get(ncin,dname,"standard_name")
-  dunits <- ncdf4::ncatt_get(ncin,dname,"units")
-  fillvalue <- ncdf4::ncatt_get(ncin,dname,"_FillValue")
-  # replace netCDF fill values with NA's
-  yh2_array[yh2_array == fillvalue$value] <- NA
-  
-  
-  # create dataframe with values
-  df <- expand.grid(lon,lat) |> 
-    as_tibble() |> 
-    dplyr::rename_with(~ c("lon", "lat"), 1:2) |> 
-    # Add wind speed at 100 m 
-    dplyr::mutate(
-      # x_wind_z
-      x_wind_100m = as.vector(xh2_array[ , , 3]),
-      # y_wind_z 
-      y_wind_100m = as.vector(yh2_array[ , , 3]),
-    )
-  
-  # Create Raster with all data
-  r_crs <- "+proj=lcc +lat_0=66.3 +lon_0=-42 +lat_1=66.3 +lat_2=66.3 +x_0=0 +y_0=0 +R=6371000 +units=m +no_defs"
-  r <- tidyterra::as_spatraster(df, crs = r_crs, digits = 4) |> 
-    # Calculate magnitude and direction
-    mutate(u_mag = sqrt(x_wind_100m^2 + y_wind_100m^2),
-           u_dir = terra::atan2(y = y_wind_100m, x = x_wind_100m) * 180/pi) |> 
-    select(u_mag, u_dir)
-  # Add time 
-  time(r) <- rep(lubridate::as_datetime(time, tz = "UTC"), times = length(names(r)))
-  
-  # Extract wind values in the points  
-  xy <- cbind(.long, .lat)
-  point <- vect(xy, crs="+proj=longlat +datum=WGS84") |> 
-    project(crs(r))
-  
-  # Extract values
-  p_wind_100m <- terra::extract(r, point) |> 
-    as_tibble() |> 
-    mutate(time = as_datetime(time(r)[1]))
-  
-  return(p_wind_100m)
-  
-} 
+wind_100m <- readRDS("data/wind_100m.rds")
 
 ```
 
+#### Hourly analysis
 
-
-
-
-```{r}
-#| label: get-wind-data-100m
-#| cache: true
-
-
-df <- tibble(
-  time = seq.Date(from = as.Date("2018-01-01"),
-                  to = as.Date("2018-01-02"),
-                  by= "day"),
-  data = list(
-    tibble(hour_group = rep(c("00", "06", "12", "18"), each = 6),
-           lead_time = rep(c("004", "005", "006", "007", "008", "009"), time = 4) 
-    )
-  )
-) |> 
-  separate(time, c("year", "month", "day")) |> 
-  unnest(data) |> 
-  mutate(long = 4.899842,
-         lat = 59.346588)
-
-wind_100m <- df |> 
-  rowwise() |> 
-  mutate(wing_100m = get_wind_100m_point(.year = year,
-                                         .month = month,
-                                         .day = day,
-                                         .hour_group = hour_group,
-                                         .lead_time = lead_time,
-                                         .long = long,
-                                         .lat = lat)) |>  
-  unnest(wing_100m) 
-
-```
+Use average hourly data directly from NORA3.
 
 ```{r}
+#| label: fig-wind-speed-day
+#| fig-cap: Hourly wind speed (m/s)
 
-ggplot(data = wing_100m, aes(x = time, y = u_mag)) +
+
+ggplot(data = wind_100m, aes(x = time, y = u_mag)) +
   geom_point() +
-  geom_smooth(span = 0.3, se = FALSE) +
+  # geom_smooth(span = 0.3, se = TRUE) +
   # Cut-in
   geom_hline(yintercept = 3.5, col = "#009E73", linetype = "dashed") + 
-  geom_text(x = as_datetime("2018-11-08 04:00:00"),
-            y = 4, 
+  geom_text(x = as_datetime("2018-01-01 04:00:00"),
+            y = 4,
             label = "Cut-in",
-            colour = "#009E73") + 
+            colour = "#009E73") +
   # Cut-off
   geom_hline(yintercept = 25, col = "#D55E00", linetype = "dashed") +
-  geom_text(x = as_datetime("2018-11-08 04:00:00"),
-            y = 25.5, 
+  geom_text(x = as_datetime("2018-01-01 04:00:00"),
+            y = 25.5,
             label = "Cut-off",
             colour = "#D55E00") +
   # Format labels and title
   labs(x = "Time",
        y = "u [m/s]",
-       title = "Wind speed at 100 m height", 
+       title = "Hourly wind speed at 100 m height", 
        subtitle = "Coordinates (WGS84): Long = 4.899842, lat = 59.346588",
        caption = "Data: NORA3") +
   coord_cartesian(ylim = c(0,30)) +
   theme_bw()
+  
+```
+
+Hystogram
+
+```{r}
+#| label: fig-histogram
+#| fig-cap: Wind speed histogram
+
+
+# Plot histogram 
+ggplot() +
+  geom_histogram(data = wind_100m, aes(x = u_mag, y =..density..),
+                 binwidth = 0.5, 
+                 fill = "#D55E00", 
+                 colour = "grey") +
+  # Format labels and title
+  labs(x = "u [m/s]",
+       title = "Histogram of hourly wind speed at 100 m height", 
+       subtitle = "Point coordinates (WGS84): Long = 4.899842, lat = 59.346588",
+       caption = "Data: NORA3") +
+  coord_cartesian(xlim = c(0, 65)) +
+  theme_bw() 
 
 ```
 
+Fit a weibull distribution
+
+```{r}
+#| label: fig-fit-distribution
+#| fig-cap: Weibull distribution 
+
+# Fit weibul distribution
+fit <- fitdistrplus::fitdist(wind_100m$u_mag,"weibull")
+
+# Put parameter in a table (inset element)
+weibull <- tibble(param = rownames(as.data.frame(fit$estimate)),
+          estimate = fit$estimate,
+          std_Error = fit$sd
+          )
+# Generate values for addind the density curve
+fit_values = rweibull(1000000, shape = fit$estimate[1], scale = fit$estimate[2]) |> 
+  as_tibble()
+
+# Plot histogram together with the weibull distribution 
+ggplot() +
+  geom_histogram(data = wind_100m, aes(x = u_mag, y =..density..),
+                 binwidth = 0.5, 
+                 fill = "#D55E00", 
+                 colour = "grey") +
+  # Addd Weibull
+  geom_density(data = fit_values,
+               aes(x = value, y = ..density..),
+               colour = "#0072B2",
+               linewidth = 1) +
+  # Format labels and title
+  labs(x = "u [m/s]",
+       title = "Weibull distribution of hourly wind speed at 100 m height", 
+       subtitle = "Point coordinates (WGS84): Long = 4.899842, lat = 59.346588",
+       caption = "Data: NORA3") +
+  coord_cartesian(xlim = c(0, 65)) +
+  theme_bw() +
+  # Add inset table
+  inset_element(gt(weibull), 0.60, 0.75, 0.95, 0.95)
+
+
+
+```
+
+Time bellow/above thresholds:
+
+```{r}
+
+
+# Time in production 
+wind_100m <- wind_100m |> 
+  select(time, u_mag, u_dir) |> 
+  mutate(production = case_when(
+    u_mag < 3.5 ~ FALSE,
+    u_mag >  25 ~ FALSE,
+    .default = TRUE)
+    ) 
+
+wind_100m |> 
+  summarise(
+    total_hours = n(),
+    total_prod = sum(production),
+    perc = 100 * mean(production)
+  ) |> 
+  gt()
+
+
+```
+
+#### Ten minutes resolution
+
+Create simulated data (n = 100) based on NORA3 hourly data. Simulated data follow a Weibull distribution with the same global shape but mean values of the hourly data.
+
+```{r}
+#| label: simulaed-data
+
+
+set.seed(36)
+
+# Shape
+wd_shape <- fit$estimate[1]
+
+# Initial data frame  
+sim_wind_100m <- tibble(time = seq(ymd_hm("2018-01-01 04:00"),
+                                   ymd_hm("2018-01-31 23:50"), 
+                                   by = "10 mins")) |> 
+  # Add mean values and simulate weibull 
+  left_join(wind_100m) |> 
+  dplyr::select(time, u_mag) |> 
+  fill(u_mag)
+
+
+# Simulations
+wd_shape <- fit$estimate[1]
+n_sim = 100
+sim <- matrix(NA, length(sim_wind_100m$u_mag), n_sim)
+u_mag = sim_wind_100m$u_mag
+for(i in 1:n_sim) {
+  for(j in seq_along(u_mag)) {
+    sim[j, i] = rweibull(1, shape = wd_shape, scale = u_mag[j] / gamma(1+(1/wd_shape)))
+  }
+}
+
+sim <- sim |> 
+  as_tibble() |> 
+  rename_with(~ paste0("sim_", .)) |> 
+  rename_with(~ gsub("V", "", .x, fixed = TRUE))
+  
+# Add to data frame
+sim_wind_100m <- sim_wind_100m |> 
+  bind_cols(sim)
+
+```
+
+```{r}
+#| label: wind-variability-sim
+
+# Plot example of 4 simulations
+sim_wind_100m |> 
+  select("sim_1", "sim_2", "sim_3", "sim_4") |> 
+  pivot_longer(cols = starts_with("sim"))  |> 
+  ggplot(aes(x = value)) +
+  geom_histogram(aes(y =..density..),
+                 bins = 50,
+                 fill = "#D55E00",
+                 colour = "grey") +
+  geom_density() +
+  labs(title = "Wind distribution in similated data",
+       subtitle = "Exampla of the first four simulations",
+       x = "u [m/s]") +
+  facet_wrap(~ name, ncol = 2) +
+  theme_bw() 
+  
+```
+
+```{r}
+#| label: fig-wind-speed-day-sim
+#| fig-cap: Hourly wind speed (m/s) of simntetic data
+
+# Exampla first four simulations
+sim_wind_100m |> 
+  select("time","u_mag", "sim_1", "sim_2", "sim_3", "sim_4") |> 
+  pivot_longer(cols = starts_with("sim")) |> 
+  ggplot() +
+  geom_point(aes(x = time, y = value),
+             colour = "#0072B2",
+             size = 0.6,
+             alpha = 0.5) + 
+  # geom_hex(aes(x = time, y = value)) +
+  # scale_fill_continuous(type = "viridis") +
+  # Hourly points
+  geom_line(data = wind_100m, aes(x = time, y = u_mag), col = "red") +
+  # Cut-in
+  geom_hline(yintercept = 3.5, col = "#009E73", linetype = "dashed") +
+  # Cut-off
+  geom_hline(yintercept = 25, col = "#D55E00", linetype = "dashed") +
+  # Format labels and title
+  labs(x = "Time",
+       y = "u [m/s]",
+       title = "Simulated wind speed at 100 m height (10 min resolution)", 
+       subtitle = "Exampla of the first four simulations",
+       caption = "Red line indicates hourly mean value from NORA3") +
+  coord_cartesian(ylim = c(0, 90)) +
+  facet_wrap(~ name, ncol = 2) +
+  theme_bw()
+
+```
+
+```{r}
+
+sim_wind_100m |> 
+  pivot_longer(cols = starts_with("sim")) |> 
+  ggplot() +
+  # geom_point(aes(x = time, y = value),
+  #            colour = "#0072B2",
+  #            size = 0.01,
+  #            alpha = 0.05) + 
+  geom_hex(aes(x = time, y = value), bins = 500) +
+  viridis:: scale_fill_viridis(trans = "log10") +
+  # Hourly points
+  geom_line(data = wind_100m, aes(x = time, y = u_mag), col = "red") +
+  # Cut-in
+  geom_hline(yintercept = 3.5, col = "#009E73", linetype = "dashed") +
+  # Cut-off
+  geom_hline(yintercept = 25, col = "#D55E00", linetype = "dashed") +
+  # Format labels and title
+  labs(x = "Time",
+       y = "u [m/s]",
+       title = "Simulated wind speed at 100 m height (10 min resolution)", 
+       subtitle = "All simulations",
+       caption = "Red line indicates hourly mean value from NORA3") +
+  coord_cartesian(ylim = c(0, 90)) +
+  theme_bw()
+
+```
+
+Analise variability in the data.
