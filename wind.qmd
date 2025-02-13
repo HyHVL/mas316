@@ -672,9 +672,9 @@ ggplot() +
 
 ### Objetives
 
-Time series wind usimg [NORA3](https://thredds.met.no/thredds/projects/nora3.html) data
+Time series wind using [NORA3](https://thredds.met.no/thredds/projects/nora3.html) data
 
-Analyse wind speed and ditection over time in a point at 100 m hight.
+Analyse wind speed and direction over time in a point at 100 m hight.
 
 ### Solution
 
@@ -736,7 +736,7 @@ ggplot(data = wind_100m, aes(x = time, y = u_mag)) +
   
 ```
 
-Hystogram
+Histogram
 
 ```{r}
 #| label: fig-histogram
@@ -759,7 +759,7 @@ ggplot() +
 
 ```
 
-Fit a weibull distribution
+Fit a Weibull distribution
 
 ```{r}
 #| label: fig-fit-distribution
@@ -805,6 +805,9 @@ ggplot() +
 Time bellow/above thresholds:
 
 ```{r}
+#| label: tbl-wind-production-1h
+#| tbl-cap: Percentage of time that a wind turbine is producing energy based on average hourly wind speed data (cut-in = 3.5 m/s, and cut-off = 25 m/s) 
+
 
 
 # Time in production 
@@ -829,20 +832,22 @@ wind_100m |>
 
 #### Ten minutes resolution
 
-Create simulated data (n = 100) based on NORA3 hourly data. Simulated data follow a Weibull distribution with the same global shape but mean values of the hourly data.
+Create simulated data (n = 1000) based on NORA3 hourly data. Simulated data follow a Weibull distribution with the same global shape but mean values of the hourly data.
 
 ```{r}
 #| label: simulaed-data
 
 
 set.seed(36)
+n_sim = 1000
+
 
 # Shape
 wd_shape <- fit$estimate[1]
 
 # Initial data frame  
 sim_wind_100m <- tibble(time = seq(ymd_hm("2018-01-01 04:00"),
-                                   ymd_hm("2018-01-31 23:50"), 
+                                   ymd_hm("2018-02-01 03:50"), 
                                    by = "10 mins")) |> 
   # Add mean values and simulate weibull 
   left_join(wind_100m) |> 
@@ -852,7 +857,6 @@ sim_wind_100m <- tibble(time = seq(ymd_hm("2018-01-01 04:00"),
 
 # Simulations
 wd_shape <- fit$estimate[1]
-n_sim = 100
 sim <- matrix(NA, length(sim_wind_100m$u_mag), n_sim)
 u_mag = sim_wind_100m$u_mag
 for(i in 1:n_sim) {
@@ -873,7 +877,8 @@ sim_wind_100m <- sim_wind_100m |>
 ```
 
 ```{r}
-#| label: wind-variability-sim
+#| label: fig-wind-variability-sim
+
 
 # Plot example of 4 simulations
 sim_wind_100m |> 
@@ -897,6 +902,7 @@ sim_wind_100m |>
 #| label: fig-wind-speed-day-sim
 #| fig-cap: Hourly wind speed (m/s) of simntetic data
 
+
 # Exampla first four simulations
 sim_wind_100m |> 
   select("time","u_mag", "sim_1", "sim_2", "sim_3", "sim_4") |> 
@@ -906,8 +912,6 @@ sim_wind_100m |>
              colour = "#0072B2",
              size = 0.6,
              alpha = 0.5) + 
-  # geom_hex(aes(x = time, y = value)) +
-  # scale_fill_continuous(type = "viridis") +
   # Hourly points
   geom_line(data = wind_100m, aes(x = time, y = u_mag), col = "red") +
   # Cut-in
@@ -928,6 +932,7 @@ sim_wind_100m |>
 
 ```{r}
 
+
 sim_wind_100m |> 
   pivot_longer(cols = starts_with("sim")) |> 
   ggplot() +
@@ -938,7 +943,10 @@ sim_wind_100m |>
   geom_hex(aes(x = time, y = value), bins = 500) +
   viridis:: scale_fill_viridis(trans = "log10") +
   # Hourly points
-  geom_line(data = wind_100m, aes(x = time, y = u_mag), col = "red") +
+  geom_line(data = wind_100m,
+            aes(x = time, y = u_mag), 
+            col = "red",
+            alpha = 0.5) +
   # Cut-in
   geom_hline(yintercept = 3.5, col = "#009E73", linetype = "dashed") +
   # Cut-off
@@ -952,6 +960,90 @@ sim_wind_100m |>
   coord_cartesian(ylim = c(0, 90)) +
   theme_bw()
 
+
 ```
 
-Analise variability in the data.
+Hourly average vs. NORA3
+
+```{r}
+#| label: fig-hourly-average
+#| fig-cap: Relationship between the hourly wind speed calculated in the simulated data and NORA3 data values
+
+
+sim_wind_100m |>  
+  mutate(date_hour = format(time, "%Y-%m-%d %H")) |> 
+  relocate(date_hour, .after = time) |> 
+  pivot_longer(cols = starts_with("sim")) |> 
+  group_by(date_hour) |> 
+  summarise(
+    n = n(),
+    time = first(time),
+    u_mag = first(u_mag),
+    sim_mean = mean(value)
+    ) |> 
+  ungroup() |> 
+  ggplot() +
+  geom_point(aes(x = u_mag, y = sim_mean), alpha = 0.5) +
+  labs(title = "Hourly wind speed [m/s]",
+       y = "Simulated data",
+       x = "NORA3 data") +
+  geom_abline(intercept = 0, slope = 1, col = "red") +
+  theme_bw()
+
+         
+```
+
+Percentage of time that a wind generator is producing energy in the 10 minute simulated data:
+
+```{r}
+#| label: fig-perc-production-sim
+#| fig-cap: Percentage of time that a wind generator is producing energy based on simulated data (cut-in = 3 m/s and cut-off = 25 m/s)
+
+
+prod_10min <- sim_wind_100m |> 
+  pivot_longer(cols = starts_with("sim")) |> 
+  group_by(name) |>
+  mutate(production = case_when(
+    value < 3.5 ~ FALSE,
+    value >  25 ~ FALSE,
+    .default = TRUE)
+    ) |> 
+  summarise(
+    total_hours = n() * 10/60,
+    total_prod = sum(production) * 10/60,
+    perc = 100 * mean(production)
+    ) |> 
+  ungroup()
+
+
+# Plot
+prod_10min |> 
+  ggplot(aes(x = perc)) +
+  geom_histogram(aes(y =..density..),
+                 bins = 50,
+                 fill = "#D55E00",
+                 colour = "grey") +
+  geom_density() +
+  labs(x = "Perc. [%]") +
+  theme_bw() 
+```
+```{r}
+#| label: tbl-perc-production-sim
+#| tbl-cap: Percentage of time that a wind generator is producing energy based on simulated data (cut-in = 3 m/s and cut-off = 25 m/s)
+
+
+prod_10min |> 
+  select("total_hours", "total_prod", "perc") |> 
+  purrr::map_dfr(.f = summary, .id = "value") |> 
+  mutate_at(vars(-value), as.numeric) |> 
+  gt() |> 
+  fmt_number(columns = vars(-value),
+             rows = c(1,2),
+             decimals = 0) |> 
+  fmt_number(columns = vars(-value),
+             rows = 3,
+             decimals = 2)
+
+```
+
+Analyse variability in the data.
