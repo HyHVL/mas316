@@ -825,7 +825,9 @@ wind_100m |>
     total_prod = sum(production),
     perc = 100 * mean(production)
   ) |> 
-  gt()
+  gt() |> 
+  fmt_number(columns = perc,
+             decimals = 1)
 
 
 ```
@@ -1042,7 +1044,7 @@ prod_10min |>
              decimals = 0) |> 
   fmt_number(columns = vars(-value),
              rows = 3,
-             decimals = 2)
+             decimals = 1)
 
 ```
 
