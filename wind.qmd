@@ -892,8 +892,8 @@ sim_wind_100m |>
                  fill = "#D55E00",
                  colour = "grey") +
   geom_density() +
-  labs(title = "Wind distribution in similated data",
-       subtitle = "Exampla of the first four simulations",
+  labs(title = "Wind distribution in simulated data",
+       subtitle = "Example of the first four simulations",
        x = "u [m/s]") +
   facet_wrap(~ name, ncol = 2) +
   theme_bw() 
@@ -1026,7 +1026,9 @@ prod_10min |>
                  fill = "#D55E00",
                  colour = "grey") +
   geom_density() +
-  labs(x = "Perc. [%]") +
+  labs(x = "Perc. [%]",
+       title = "Hystogram of the percentage of hours in production",
+       subtitle = "Wind speed between cut-in = 3.5 m/s and cut-off = 25 m/s") +
   theme_bw() 
 ```
 ```{r}
