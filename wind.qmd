@@ -704,9 +704,6 @@ wind_100m <- wind_100m |>
   # Add columns indicatind day/night time
   mutate(day_night = ifelse(is_daytime(time, tz = "Europe/Oslo"), "day", "night"))
 
-wind_100m |>
-  gt()
-
 ```
 
 #### Hourly analysis
