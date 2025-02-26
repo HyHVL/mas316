@@ -686,6 +686,7 @@ library(eurostat)
 library(sf)
 library(tidyverse)
 library(lubridate)
+library(photobiology)
 library(purrr)
 library(patchwork)
 library(ncdf4)
@@ -697,7 +698,14 @@ Read data that have been previously downloaded into a local file.
 
 ```{r}
 
-wind_100m <- readRDS("data/wind_100m.rds")
+wind_100m <- readRDS("data/wind_100m.rds") 
+
+wind_100m <- wind_100m |> 
+  # Add columns indicatind day/night time
+  mutate(day_night = ifelse(is_daytime(time, tz = "Europe/Oslo"), "day", "night"))
+
+wind_100m |>
+  gt()
 
 ```
 
@@ -769,12 +777,12 @@ Fit a Weibull distribution
 fit <- fitdistrplus::fitdist(wind_100m$u_mag,"weibull")
 
 # Put parameter in a table (inset element)
-weibull <- tibble(param = rownames(as.data.frame(fit$estimate)),
-          estimate = fit$estimate,
-          std_Error = fit$sd
-          )
+weibull_param <- tibble(param = rownames(as.data.frame(fit$estimate)),
+                        estimate = fit$estimate,
+                        std_Error = fit$sd)
+
 # Generate values for addind the density curve
-fit_values = rweibull(1000000, shape = fit$estimate[1], scale = fit$estimate[2]) |> 
+fit_values <- rweibull(1000000, shape = fit$estimate[1], scale = fit$estimate[2]) |> 
   as_tibble()
 
 # Plot histogram together with the weibull distribution 
@@ -796,11 +804,80 @@ ggplot() +
   coord_cartesian(xlim = c(0, 65)) +
   theme_bw() +
   # Add inset table
-  inset_element(gt(weibull), 0.60, 0.75, 0.95, 0.95)
-
-
+  inset_element(gt(weibull_param), 0.60, 0.75, 0.95, 0.95)
 
 ```
+
+Day-night variation in the wind speed distribution
+```{r}
+#| label: fig-histogram-day-nigh
+#| fig-cap: Histogram and weibull parameters of wind speed 
+
+ 
+# Separate by day-night and fit a weibull for each group 
+fit_weibull <- function(df) { fitdistrplus::fitdist(df$u_mag,"weibull") }
+
+group_names <- wind_100m |> 
+  group_by(day_night) |>
+  group_keys() |>
+  pull(1)
+
+fit <- wind_100m |> 
+  group_split(day_night) |> 
+  set_names(group_names) |> 
+  map(.f = fit_weibull)
+
+# Put parameter in a table (inset element)
+weibull_param <- tibble(param = c("shape", "scale"),
+                        group = "day",
+                        estimate = fit$day[[1]],
+                        std_error = fit$day[[3]]
+  ) |> 
+  bind_rows(
+    tibble(param = c("shape", "scale"),
+           group = "night",
+           estimate = fit$night[[1]],
+           std_error = fit$night[[3]])
+  )
+
+
+# Generate values for adding the weibull curve
+fit_values <- tibble(
+  day = rweibull(1000000, shape = fit$day[[1]][1], scale = fit$day[[1]][2]),
+  night = rweibull(1000000, shape = fit$night[[1]][1], scale = fit$night[[1]][2])
+) |> 
+  pivot_longer(cols = everything(),
+               names_to = "day_night",
+               values_to = "value"
+               )
+
+# Plot histograms
+ggplot() +
+  geom_histogram(data = wind_100m, aes(x = u_mag, y =..density..),
+                 binwidth = 0.5, 
+                 fill = "#D55E00", 
+                 colour = "grey") +
+  # Addd Weibull
+  geom_density(data = fit_values,
+               aes(x = value, y = ..density..),
+               colour = "#0072B2",
+               linewidth = 1) +
+  # Format labels and title
+  labs(x = "u [m/s]",
+       title = "Weibull distribution of hourly wind speed at 100 m height", 
+       subtitle = "Point coordinates (WGS84): Long = 4.899842, lat = 59.346588",
+       caption = "Data: NORA3") +
+  coord_cartesian(xlim = c(0, 65)) +
+  facet_grid(~day_night) +
+  theme_bw() +
+  # Add inset table
+  inset_element(gt(filter(weibull_param, group == "day") |> select(-group)),
+                0.25, 0.8, 0.45, 0.95) +
+  inset_element(gt(filter(weibull_param, group == "night") |> select(-group)),
+                0.75, 0.8, 0.95, 0.95)
+
+```
+
 
 Time bellow/above thresholds:
 
@@ -832,9 +909,9 @@ wind_100m |>
 
 ```
 
-#### Ten minutes resolution
+#### Downscale to 10-min resolution
 
-Create simulated data (n = 1000) based on NORA3 hourly data. Simulated data follow a Weibull distribution with the same global shape but mean values of the hourly data.
+Create simulated data (n = 1000) based on NORA3 hourly data. Simulated data follow a Weibull distribution with the same global shape of day/night but mean values of the hourly data.
 
 ```{r}
 #| label: simulaed-data
@@ -843,10 +920,6 @@ Create simulated data (n = 1000) based on NORA3 hourly data. Simulated data foll
 set.seed(36)
 n_sim = 1000
 
-
-# Shape
-wd_shape <- fit$estimate[1]
-
 # Initial data frame  
 sim_wind_100m <- tibble(time = seq(ymd_hm("2018-01-01 04:00"),
                                    ymd_hm("2018-02-01 03:50"), 
@@ -854,27 +927,53 @@ sim_wind_100m <- tibble(time = seq(ymd_hm("2018-01-01 04:00"),
   # Add mean values and simulate weibull 
   left_join(wind_100m) |> 
   dplyr::select(time, u_mag) |> 
-  fill(u_mag)
+  fill(u_mag) |> 
+  # Add columns indicatind day/night time
+  mutate(day_night = ifelse(is_daytime(time, tz = "Europe/Oslo"), "day", "night")) 
 
+# Simulations day
+wd_shape <- weibull_param |> filter(group == "day", param == "shape") |> pull(estimate)
+sim_wind_100m_day <- filter(sim_wind_100m, day_night == "day")
+sim_day <- matrix(NA, length(sim_wind_100m_day$u_mag), n_sim)
+u_mag <- sim_wind_100m_day$u_mag
 
-# Simulations
-wd_shape <- fit$estimate[1]
-sim <- matrix(NA, length(sim_wind_100m$u_mag), n_sim)
-u_mag = sim_wind_100m$u_mag
 for(i in 1:n_sim) {
   for(j in seq_along(u_mag)) {
-    sim[j, i] = rweibull(1, shape = wd_shape, scale = u_mag[j] / gamma(1+(1/wd_shape)))
+    sim_day[j, i] = rweibull(1, shape = wd_shape, scale = u_mag[j] / gamma(1+(1/wd_shape)))
   }
 }
 
-sim <- sim |> 
+sim_day <- sim_day |> 
   as_tibble() |> 
   rename_with(~ paste0("sim_", .)) |> 
   rename_with(~ gsub("V", "", .x, fixed = TRUE))
-  
-# Add to data frame
-sim_wind_100m <- sim_wind_100m |> 
-  bind_cols(sim)
+
+sim_wind_100m_day <- sim_wind_100m_day |> 
+  bind_cols(sim_day)
+
+# Simulations night
+wd_shape <- weibull_param |> filter(group == "night", param == "shape") |> pull(estimate)
+sim_wind_100m_night <- filter(sim_wind_100m, day_night == "night")
+sim_night <- matrix(NA, length(sim_wind_100m_night$u_mag), n_sim)
+u_mag <- sim_wind_100m_night$u_mag
+for(i in 1:n_sim) {
+  for(j in seq_along(u_mag)) {
+    sim_night[j, i] = rweibull(1, shape = wd_shape, scale = u_mag[j] / gamma(1+(1/wd_shape)))
+  }
+}
+
+sim_night <- sim_night |> 
+  as_tibble() |> 
+  rename_with(~ paste0("sim_", .)) |> 
+  rename_with(~ gsub("V", "", .x, fixed = TRUE))
+
+sim_wind_100m_night <- sim_wind_100m_night |> 
+  bind_cols(sim_night)
+
+# Merge data
+sim_wind_100m <- sim_wind_100m_day |> 
+  bind_rows(sim_wind_100m_night) |> 
+  arrange(time)
 
 ```
 
@@ -926,7 +1025,6 @@ sim_wind_100m |>
        title = "Simulated wind speed at 100 m height (10 min resolution)", 
        subtitle = "Exampla of the first four simulations",
        caption = "Red line indicates hourly mean value from NORA3") +
-  coord_cartesian(ylim = c(0, 90)) +
   facet_wrap(~ name, ncol = 2) +
   theme_bw()
 
@@ -959,7 +1057,6 @@ sim_wind_100m |>
        title = "Simulated wind speed at 100 m height (10 min resolution)", 
        subtitle = "All simulations",
        caption = "Red line indicates hourly mean value from NORA3") +
-  coord_cartesian(ylim = c(0, 90)) +
   theme_bw()
 
 
@@ -990,9 +1087,73 @@ sim_wind_100m |>
        y = "Simulated data",
        x = "NORA3 data") +
   geom_abline(intercept = 0, slope = 1, col = "red") +
+  coord_equal() + 
   theme_bw()
 
          
+```
+```{r}
+
+sim_wind_100m_hour <- sim_wind_100m |>  
+  mutate(date_hour = format(time, "%Y-%m-%d %H")) |> 
+  relocate(date_hour, .after = time) |> 
+  pivot_longer(cols = starts_with("sim")) |> 
+  tidytable::group_by(date_hour,name) |> 
+  tidytable::summarise(
+    n = n(),
+    time = first(time),
+    u_mag = first(u_mag),
+    sim_mean = mean(value)
+  ) |> 
+  tidytable::ungroup() 
+
+
+sim_wind_100m_hour |> 
+  ggplot() +
+  geom_hex(aes(x = u_mag, y = sim_mean), bins = 120) +
+  viridis::scale_fill_viridis(trans = "log10") +
+  labs(title = "Hourly wind speed [m/s]",
+       y = "Simulated data",
+       x = "NORA3 data") +
+  geom_abline(intercept = 0, slope = 1, col = "red") +
+  coord_equal() +
+  theme_bw()
+
+
+# Time in production 
+sim_wind_100m_hour <- sim_wind_100m_hour |> 
+  mutate(production = case_when(
+    sim_mean < 3.5 ~ FALSE,
+    sim_mean >  25 ~ FALSE,
+    .default = TRUE)
+    ) 
+
+# Time in production
+sim_wind_100m_hour_prod <- sim_wind_100m_hour |> 
+  group_by(name) |> 
+  summarise(
+    total_hours = n(),
+    total_prod = sum(production),
+    perc = 100 * mean(production)
+  ) |> 
+  ungroup()
+
+
+# Plot percentage
+sim_wind_100m_hour_prod |> 
+  ggplot(aes(x = perc)) +
+  geom_histogram(aes(y =..density..),
+                 bins = 40,
+                 fill = "#D55E00",
+                 colour = "grey") +
+  geom_density() +
+  labs(x = "Perc. [%]",
+       title = "Histogram of the percentage the time in production",
+       subtitle = "Based on hourly means of simulated data",
+       caption = "Wind speed between cut-in = 3.5 m/s and cut-off = 25 m/s") +
+  theme_bw() 
+
+
 ```
 
 Percentage of time that a wind generator is producing energy in the 10 minute simulated data:
@@ -1022,14 +1183,15 @@ prod_10min <- sim_wind_100m |>
 prod_10min |> 
   ggplot(aes(x = perc)) +
   geom_histogram(aes(y =..density..),
-                 bins = 50,
+                 bins = 40,
                  fill = "#D55E00",
                  colour = "grey") +
   geom_density() +
   labs(x = "Perc. [%]",
-       title = "Hystogram of the percentage of hours in production",
+       title = "Histogram of the percentage of hours in production",
        subtitle = "Wind speed between cut-in = 3.5 m/s and cut-off = 25 m/s") +
   theme_bw() 
+
 ```
 ```{r}
 #| label: tbl-perc-production-sim
