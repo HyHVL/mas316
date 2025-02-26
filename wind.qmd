@@ -750,7 +750,7 @@ Histogram
 
 # Plot histogram 
 ggplot() +
-  geom_histogram(data = wind_100m, aes(x = u_mag, y =..density..),
+  geom_histogram(data = wind_100m, aes(x = u_mag, y = after_stat(density)),
                  binwidth = 0.5, 
                  fill = "#D55E00", 
                  colour = "grey") +
@@ -784,13 +784,13 @@ fit_values <- rweibull(1000000, shape = fit$estimate[1], scale = fit$estimate[2]
 
 # Plot histogram together with the weibull distribution 
 ggplot() +
-  geom_histogram(data = wind_100m, aes(x = u_mag, y =..density..),
+  geom_histogram(data = wind_100m, aes(x = u_mag, y = after_stat(density)),
                  binwidth = 0.5, 
                  fill = "#D55E00", 
                  colour = "grey") +
   # Addd Weibull
   geom_density(data = fit_values,
-               aes(x = value, y = ..density..),
+               aes(x = value, y = after_stat(density)),
                colour = "#0072B2",
                linewidth = 1) +
   # Format labels and title
@@ -801,7 +801,9 @@ ggplot() +
   coord_cartesian(xlim = c(0, 65)) +
   theme_bw() +
   # Add inset table
-  inset_element(gt(weibull_param), 0.60, 0.75, 0.95, 0.95)
+  inset_element(gt(weibull_param) |> 
+                  fmt_number(decimals = 2),
+                0.60, 0.75, 0.95, 0.95)
 
 ```
 
@@ -850,13 +852,13 @@ fit_values <- tibble(
 
 # Plot histograms
 ggplot() +
-  geom_histogram(data = wind_100m, aes(x = u_mag, y =..density..),
+  geom_histogram(data = wind_100m, aes(x = u_mag, y = after_stat(density)),
                  binwidth = 0.5, 
                  fill = "#D55E00", 
                  colour = "grey") +
   # Addd Weibull
   geom_density(data = fit_values,
-               aes(x = value, y = ..density..),
+               aes(x = value, y = after_stat(density)),
                colour = "#0072B2",
                linewidth = 1) +
   # Format labels and title
@@ -868,10 +870,16 @@ ggplot() +
   facet_grid(~day_night) +
   theme_bw() +
   # Add inset table
-  inset_element(gt(filter(weibull_param, group == "day") |> select(-group)),
-                0.25, 0.8, 0.45, 0.95) +
-  inset_element(gt(filter(weibull_param, group == "night") |> select(-group)),
-                0.75, 0.8, 0.95, 0.95)
+  inset_element(
+    gt(filter(weibull_param, group == "day") |> select(-group)) |> 
+      fmt_number(decimals = 2),
+    0.15, 0.8, 0.35, 0.95
+  ) +
+  inset_element(
+    gt(filter(weibull_param, group == "night") |> select(-group)) |> 
+      fmt_number(decimals = 2),
+    0.65, 0.8, 0.85, 0.95
+  )
 
 ```
 
@@ -983,7 +991,7 @@ sim_wind_100m |>
   select("sim_1", "sim_2", "sim_3", "sim_4") |> 
   pivot_longer(cols = starts_with("sim"))  |> 
   ggplot(aes(x = value)) +
-  geom_histogram(aes(y =..density..),
+  geom_histogram(aes(y = after_stat(density)),
                  bins = 50,
                  fill = "#D55E00",
                  colour = "grey") +
@@ -1139,7 +1147,7 @@ sim_wind_100m_hour_prod <- sim_wind_100m_hour |>
 # Plot percentage
 sim_wind_100m_hour_prod |> 
   ggplot(aes(x = perc)) +
-  geom_histogram(aes(y =..density..),
+  geom_histogram(aes(y =after_stat(density)),
                  bins = 40,
                  fill = "#D55E00",
                  colour = "grey") +
@@ -1179,7 +1187,7 @@ prod_10min <- sim_wind_100m |>
 # Plot
 prod_10min |> 
   ggplot(aes(x = perc)) +
-  geom_histogram(aes(y =..density..),
+  geom_histogram(aes(y = after_stat(density)),
                  bins = 40,
                  fill = "#D55E00",
                  colour = "grey") +
