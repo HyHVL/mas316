@@ -150,16 +150,10 @@ get_wind_z <- function(.year,
 
 
 #' @example
-ws <- get_wind_z(.year = "2018",
-                 .month = "11",
-                 .day = "08",
-                 .hour_group = "00",
-                 .lead_time = "004")
-ws
-
-
-
-
+#' get_wind_z(.year = "2018",
+#'                  .month = "11",
+#'                  .day = "08",
+#'                  .hour_group = "00",
 
 
 
@@ -307,15 +301,13 @@ get_wind_profile <- function(.year,
 } 
 
 #' @example
-wp <- get_wind_profile(.year = "2018",
-                       .month = "11",
-                       .day = "08",
-                       .hour_group = "00",
-                       .lead_time = "004",
-                       .long = 4.899842,
-                       .lat = 59.34659)
-wp
-
+#' get_wind_profile(.year = "2018",
+#'                        .month = "11",
+#'                        .day = "08",
+#'                        .hour_group = "00",
+#'                        .lead_time = "004",
+#'                        .long = 4.899842,
+#'                        .lat = 59.34659)
 
 
 
@@ -326,21 +318,21 @@ wp
 get_inter_wind_profile <- function(x){
   
   # Vector with alpha depending on height
-  alpha <- rep(NA, 5)
+  alpha <- rep(NA, length(x$wind_m_s)-1)
   for(i in seq_along(alpha)) {
     alpha[i] = as.numeric( (log(x[i, 2]/x[i+1, 2]) / log(x[i, 1]/x[i+1, 1])) )
   }
   
   # Create data frame for interpolation (steps = 1) 
-  wind_inter <- tibble(height_m = seq(10, 750, 1)) |> 
-    mutate(wind_m_s = NA) |> 
-    mutate(alpha = case_when(
-      height_m <= 20 ~ alpha[1],
-      height_m >  20 &  height_m <=  50 ~ alpha[2],
-      height_m >  50 &  height_m <= 100 ~ alpha[3],
-      height_m > 100 &  height_m <= 250 ~ alpha[4],
-      height_m > 250 &  height_m <= 750 ~ alpha[5]
-    ))  
+  wind_inter <- tibble(height_m = seq(10, 750, 1),
+                       wind_m_s = NA,
+                       alpha = case_when(
+                         height_m <= 20 ~  alpha[1],
+                         height_m >  20 &  height_m <=  50 ~ alpha[2],
+                         height_m >  50 &  height_m <= 100 ~ alpha[3],
+                         height_m > 100 &  height_m <= 250 ~ alpha[4],
+                         height_m > 250 &  height_m <= 750 ~ alpha[5]
+                       ))  
   
   # Interpolation (based on u [m/s] at 10 m)
   wind_inter$wind_m_s[1] = x[x["height_m"] == 10, ]$wind_m_s

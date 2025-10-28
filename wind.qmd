@@ -396,15 +396,16 @@ eu_countries <- get_eurostat_geospatial(resolution = 10,
 ```
 
 Read data directly from the web (without downloading the data to a local folder
+
 ```{r}
 #| label: get-data
 
 
-wind_nora3 <- get_wind_z(.year = "2018",
-                         .month = "11",
-                         .day = "08",
-                         .hour_group = "00",
-                         .lead_time = "004")
+wind_nora3 <- get_wind_z(.year = "2000",
+                         .month = "01",
+                         .day = "01",
+                         .hour_group = "06",
+                         .lead_time = "005")
 
 wind_nora3
 
@@ -520,12 +521,12 @@ Read data that have been previously downloaded into a local file.
 
 ```{r}
 
-wind_nora3 <- read_csv("data/NORA3_wind_sub_lon1.32_lat53.324_20000101_20000130.csv",
-                      skip = 16)
+dat_path <-  "data/NORA3_wind_sub_lon5.029584_lat59.1403111_20000101_20001231.csv"
 
-wind_nora3 <- wind_nora3 |> 
+wind_nora3 <- read_csv(dat_path) |> 
   # Add columns indicating day/night time
-  mutate(day_night = ifelse(is_daytime(time, tz = "Europe/Oslo"), "day", "night")) 
+  mutate(day_night = ifelse(is_daytime(time, tz = "Europe/Oslo"), "day", "night")) |> 
+  relocate(day_night, .after = time)
 
 ```
 
@@ -539,7 +540,7 @@ Use average hourly data directly from NORA3.
 
 
 ggplot(data = wind_nora3, aes(x = time, y = wind_speed_100m)) +
-  geom_point() +
+  geom_line(colour = "grey") +
   # geom_smooth(span = 0.3, se = TRUE) +
   # Cut-in
   geom_hline(yintercept = 3.5, col = "#009E73", linetype = "dashed") + 
@@ -631,6 +632,7 @@ ggplot() +
 ```
 
 Day-night variation in the wind speed distribution
+
 ```{r}
 #| label: fig-histogram-day-nigh
 #| fig-cap: Histogram and weibull parameters of wind speed 
@@ -706,7 +708,6 @@ ggplot() +
 
 ```
 
-
 Time bellow/above thresholds:
 
 ```{r}
@@ -750,8 +751,8 @@ n_sim = 1000
 
 # Initial data frame  
 sim_wind_nora3 <- tibble(time = seq(ymd_hm("2000-01-01 00:00"),
-                                   ymd_hm("2000-01-30 23:50"), 
-                                   by = "10 mins")) |> 
+                                    ymd_hm("2000-12-31 23:50"), 
+                                    by = "10 mins")) |> 
   # Add mean values and simulate weibull 
   left_join(wind_nora3) |> 
   dplyr::select(time, wind_speed_100m) |> 
@@ -837,8 +838,8 @@ sim_wind_nora3 |>
   select("time","wind_speed_100m", "sim_1", "sim_2", "sim_3", "sim_4") |> 
   pivot_longer(cols = starts_with("sim")) |> 
   ggplot() +
-  geom_point(aes(x = time, y = value),
-             colour = "#0072B2",
+  geom_line(aes(x = time, y = value),
+             colour = "grey",
              size = 0.6,
              alpha = 0.5) + 
   # Hourly points
@@ -851,7 +852,7 @@ sim_wind_nora3 |>
   labs(x = "Time",
        y = "u [m/s]",
        title = "Simulated wind speed at 100 m height (10 min resolution)", 
-       subtitle = "Exampla of the first four simulations",
+       subtitle = "Example of the first four simulations",
        caption = "Red line indicates hourly mean value from NORA3") +
   facet_wrap(~ name, ncol = 2) +
   theme_bw()
@@ -887,7 +888,6 @@ sim_wind_nora3 |>
        caption = "Red line indicates hourly mean value from NORA3") +
   theme_bw()
 
-
 ```
 
 Hourly average vs. NORA3
@@ -920,6 +920,7 @@ sim_wind_nora3 |>
 
          
 ```
+
 ```{r}
 
 sim_wind_nora3_hour <- sim_wind_nora3 |>  
@@ -974,7 +975,7 @@ sim_wind_nora3_hour_prod |>
                  colour = "grey") +
   # geom_density() +
   labs(x = "Perc. [%]",
-       title = "Histogram of the percentage the time in production",
+       title = "Histogram of the percentage of time in production",
        subtitle = "Based on hourly means of simulated data",
        caption = "Wind speed between cut-in = 3.5 m/s and cut-off = 25 m/s") +
   theme_bw() 
@@ -1019,6 +1020,7 @@ prod_10min |>
   theme_bw() 
 
 ```
+
 ```{r}
 #| label: tbl-perc-production-sim
 #| tbl-cap: Percentage of time that a wind generator is producing energy based on simulated data (cut-in = 3 m/s and cut-off = 25 m/s)
@@ -1040,8 +1042,291 @@ prod_10min |>
 
 Analyse variability in the data.
 
+## Exercise 5
+
+Analyse NORA3 time series (i.e., ten years of data at a resolution of 1h) at Zephyros (Karmøy - 59.346588 (lat), 4.899842 (long)).
+
+Turbine characteristics:
+
+-   Turbine: Siemens 2,3 MW (SWT-2.3-82)
+
+-   Date of installation: 2009
+
+-   Hub height: 65 m
+
+-   Rotor diameter: 82.4 m
+
+-   Rated wind speed: 17 m/s
+
+-   Cut-in wind speed: 3.5 m/s
+
+-   Cut-off wind speed: 25 m/s
+
+Power curve: https://www.thewindpower.net/turbine_en_23_siemens_swt-2.3-82.php
+
+```{r}
+#| label: libraries-ex5
 
 
+library(terra)
+library(tidyterra)
+library(eurostat)
+library(sf)
+library(tidyverse)
+library(lubridate)
+library(photobiology)
+library(purrr)
+library(patchwork)
+library(ncdf4)
+library(gt)
+
+```
+
+```{r}
+#| label: read-data-nora3-10y
 
 
+dat_path <-  "data/NORA3_wind_sub_lon5.029584_lat59.1403111_20100101_20231231.csv"
 
+wind_nora3 <- read_csv(dat_path, skip = 16) |> 
+  # Add columns indicating day/night time
+  mutate(day_night = ifelse(is_daytime(time, tz = "Europe/Oslo"), "day", "night")) |> 
+  relocate(day_night, .after = time)  
+  # # Select one year (e.g. 2023)
+  # filter(year(time) == 2023) 
+
+```
+
+Summary data (P25, P50, P95):
+
+```{r}
+#| lable: plot-wind-profile-stats
+
+wind_nora3 |> 
+  select(time, starts_with("wind_speed")) |> 
+  pivot_longer(cols = starts_with("wind_speed"),
+               names_to = "height_m",
+               values_to = "wind_m_s") |> 
+  mutate(height_m = parse_number(height_m)) |>  
+  arrange(time, height_m) |> 
+  group_by(height_m) |> 
+  summarise(p05 = quantile(wind_m_s, probs = 0.05),
+            p25 = quantile(wind_m_s, probs = 0.25),
+            p50 = median(wind_m_s),
+            mean = mean(wind_m_s), 
+            p95 = quantile(wind_m_s, probs = 0.95),
+            p99 = quantile(wind_m_s, probs = 0.99),
+            max = max(wind_m_s)) |> 
+  pivot_longer(cols = -height_m,
+               names_to = "percentile",
+               values_to = "value") |> 
+  mutate(percentile = as_factor(percentile)) |> 
+  ggplot(aes(x = value, y = height_m, colour = percentile)) + 
+  geom_point() +
+  geom_path() +
+  labs(x = "u [m/s]",
+       y = "height [m]",
+       colour = "Value",
+       title = "Vertical wind profile statistics at 59.346588 (lat), 4.899842 (long)", 
+       subtitle = paste("Period:", min(wind_nora3$time), "to", max(wind_nora3$time))) +
+  theme_bw()
+
+```
+
+The wind seed at hub heigh (65 m) is calculated based on the following an exponential model [@solbrekke2022]:
+
+-   Exponential relation:
+
+    $$  u_{z_2}(t) = u_{z_1}(t) \Big(\frac{z_2}{z_1}\Big)^{\alpha(t)} $$
+
+-   Exponential power law coefficient:
+
+    $$  \alpha(t) = \frac{ln\Big( \frac{u_{z_2}(t)}{u_{z_1}(t)} \Big)}{ln\Big( \frac{z_2}{z_1} \Big)} $$
+
+In this sense, we first interpolate the profile between points we have data (10 m - 100 m) with steps of 1 m, and then select the wind speed at hub height:
+
+```{r}
+#| label: function-interpolation
+
+
+#' Interpolate wind speed profile
+#' @param .x data frame with wind speed at different heights (10, 20, 50, 100, 250, 500, 750))
+get_inter_wind_profile <- function(x){
+  
+  # Vector with alpha depending on height
+  alpha <- rep(NA, length(x$wind_m_s)-1)
+  for(i in seq_along(alpha)) {
+    alpha[i] = as.numeric( (log(x[i, 2]/x[i+1, 2]) / log(x[i, 1]/x[i+1, 1])) )
+  }
+  
+  # Create data frame for interpolation (steps = 1) 
+  wind_inter <- tibble(height_m = seq(10, 750, 1),
+                       wind_m_s = NA,
+                       alpha = case_when(
+                         height_m <= 20 ~  alpha[1],
+                         height_m >  20 &  height_m <=  50 ~ alpha[2],
+                         height_m >  50 &  height_m <= 100 ~ alpha[3],
+                         height_m > 100 &  height_m <= 250 ~ alpha[4],
+                         height_m > 250 &  height_m <= 500 ~ alpha[5],
+                         height_m > 500 &  height_m <= 750 ~ alpha[6]
+                       ))  
+  
+  # Interpolation (based on u [m/s] at 10 m)
+  wind_inter$wind_m_s[1] = x[x["height_m"] == 10, ]$wind_m_s
+  for(i in 2:length(wind_inter$height_m)) {
+    wind_inter$wind_m_s[i] = wind_inter$wind_m_s[i-1] * (wind_inter$height_m[i] / wind_inter$height_m[i-1])^wind_inter$alpha[i]
+  }
+  
+  return(wind_inter)
+  
+}
+
+# Example for one point
+x <- wind_nora3[89, ] |> 
+  select(time, starts_with("wind_speed")) |> 
+  pivot_longer(cols = starts_with("wind_speed"),
+               names_to = "height_m",
+               values_to = "wind_m_s")  |> 
+  select(-time) |> 
+  mutate(height_m = parse_number(height_m)) 
+
+wp <- get_inter_wind_profile(x)
+
+# Plot
+ggplot() + 
+  geom_point(data = x,
+             aes(x = wind_m_s, y = height_m ),
+             col = "blue") +
+  geom_path(data = wp,
+             aes(x = wind_m_s, y = height_m ),
+             col = "red") + 
+  labs(x = "u [m/s]",
+       y = "height [m]") +
+  theme_bw()
+
+```
+
+Interpolate all points, and get the value at hub height (65 m):
+
+```{r}
+#| cache: true
+
+
+# Example for one point
+get_wind_hub <- function(i){
+  
+ wind_nora3[i,] |> 
+    select(time, starts_with("wind_speed")) |> 
+    pivot_longer(cols = starts_with("wind_speed"),
+                 names_to = "height_m",
+                 values_to = "wind_m_s")  |> 
+    select(-time) |> 
+    mutate(height_m = parse_number(height_m)) |> 
+    get_inter_wind_profile() |>
+    filter(height_m == 65) |> 
+    pull(wind_m_s)
+ 
+}
+
+
+library(furrr)
+plan(multisession, workers = 7)
+wind_speed_65m <-  future_map_dbl(.x = c(1:length(wind_nora3$time)),
+                                  .f = get_wind_hub)
+
+wind_nora3 <- wind_nora3 |> 
+  mutate(wind_speed_65m = wind_speed_65m)
+
+```
+
+Plot time series at 65 m
+
+```{r}
+#| label: fig-wind-speed-day
+#| fig-cap: Hourly wind speed (m/s)
+
+
+p <- ggplot(data = wind_nora3, aes(x = time, y = wind_speed_65m)) +
+  geom_line(colour = "grey") +
+  # geom_smooth(span = 0.3, se = TRUE) +
+  # Cut-in
+  geom_hline(yintercept = 3.5, col = "#009E73", linetype = "dashed") + 
+  geom_text(x = min(wind_nora3$time),
+            y = 4,
+            label = "Cut-in",
+            colour = "#009E73") +
+  # Cut-off
+  geom_hline(yintercept = 25, col = "#D55E00", linetype = "dashed") +
+  geom_text(x = min(wind_nora3$time),
+            y = 25.5,
+            label = "Cut-off",
+            colour = "#D55E00") +
+  # Format labels and title
+  labs(x = "Time",
+       y = "u [m/s]",
+       title = "Hourly wind speed at hub height (65 m)", 
+       subtitle = "Coordinates (WGS84): Long = 4.899842, lat = 59.346588",
+       caption = paste("Period:", min(wind_nora3$time), "to", max(wind_nora3$time))) +
+  coord_cartesian(ylim = c(0,30)) +
+  theme_bw()
+
+p
+
+```
+
+Time series analysis
+
+```{r}
+
+ws_ts <- ts(wind_nora3$wind_speed_100m, start = c(2010), frequency = 8760)
+
+# seasonal, trend and irregular components
+ws_ts_de <- decompose(ws_ts, type = "additive")
+         
+plot(ws_ts_de)
+```
+
+```{r}
+
+ggseasonplot(ws_ts_de$seasonal, year.labels = F, continuous = TRUE)
+```
+
+```{r}
+fit <- stl(ws_ts, s.window = "periodic")
+autoplot(fit)
+```
+
+```{r}
+gglagplot(ws_ts)
+```
+
+```{r}
+ggAcf(ws_ts)
+```
+
+```{r}
+
+autoplot(diff(ws_ts))
+```
+
+```{r}
+ggAcf(diff(ws_ts))
+```
+
+```{r}
+
+install.packages("feasts")
+library(tsibble)
+library(feasts)
+
+wind_nora3
+
+ws_tsbl <- wind_nora3 |>
+  filter(year(time) == 2023) |> 
+  select(time, wind_speed_65m) |> 
+  as_tsibble(key = wind_speed_65m, index = time)
+
+ws_tsbl %>%
+  autoplot(wind_speed_65m)
+
+```
